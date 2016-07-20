@@ -35,7 +35,7 @@
 
 #include "../../../stream_encoder.h"
 #if FLAC__HAS_OGG
-#include "../private/ogg_encoder_aspect.h"
+#include "../ogg_encoder_aspect.h"
 #endif
 
 #ifndef FLAC__INTEGER_ONLY_LIBRARY

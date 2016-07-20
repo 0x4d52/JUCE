@@ -39,8 +39,10 @@
 #include <string.h> /* for memset() */
 #include "../assert.h"
 #include "../format.h"
+#include "../alloc.h"
 #include "../compat.h"
 #include "include/private/format.h"
+//#include "include/private/macros.h" // FLACCHECK
 
 /* VERSION should come from configure */
 FLAC_API const char *FLAC__VERSION_STRING = VERSION;
@@ -272,6 +274,9 @@ FLAC_API unsigned FLAC__format_seektable_sort(FLAC__StreamMetadata_SeekTable *se
 	FLAC__bool first;
 
 	FLAC__ASSERT(0 != seek_table);
+
+	if (seek_table->num_points == 0)
+		return 0;
 
 	/* sort the seekpoints */
 	qsort(seek_table->points, seek_table->num_points, sizeof(FLAC__StreamMetadata_SeekPoint), (int (*)(const void *, const void *))seekpoint_compare_);

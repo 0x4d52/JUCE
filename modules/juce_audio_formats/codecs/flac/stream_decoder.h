@@ -33,6 +33,7 @@
 #ifndef FLAC__STREAM_DECODER_H
 #define FLAC__STREAM_DECODER_H
 
+#include <stdio.h> /* for FILE */
 #include "export.h"
 #include "format.h"
 
@@ -227,7 +228,7 @@ typedef enum {
 	 */
 
 	FLAC__STREAM_DECODER_ABORTED,
-	/**< The decoder was aborted by the read callback. */
+	/**< The decoder was aborted by the read or write callback. */
 
 	FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR,
 	/**< An error occurred allocating memory.  The decoder is in an invalid
