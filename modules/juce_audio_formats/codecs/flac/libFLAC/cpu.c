@@ -67,15 +67,13 @@
 #  include <cpuid.h> /* for __get_cpuid() and __get_cpuid_max() */
 #endif
 
-#ifndef FLAC__DONT_DEFINE_DFPRINTF
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(FLAC__DONT_DEFINE_DFPRINTF)
 #include <stdio.h>
 
 #define dfprintf fprintf
 #else
 /* This is bad practice, it should be a static void empty function */
 #define dfprintf(file, format, ...)
-#endif
 #endif
 
 /* these are flags in EDX of CPUID AX=00000001 */
