@@ -67,7 +67,7 @@
 #  include <cpuid.h> /* for __get_cpuid() and __get_cpuid_max() */
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(dfprintf)
 #include <stdio.h>
 
 #define dfprintf fprintf
