@@ -67,7 +67,8 @@
 #  include <cpuid.h> /* for __get_cpuid() and __get_cpuid_max() */
 #endif
 
-#if defined(DEBUG) && !defined(dfprintf)
+#ifndef dfprintf
+#ifdef DEBUG
 #include <stdio.h>
 
 #define dfprintf fprintf
@@ -75,7 +76,7 @@
 /* This is bad practice, it should be a static void empty function */
 #define dfprintf(file, format, ...)
 #endif
-
+#endif
 
 /* these are flags in EDX of CPUID AX=00000001 */
 static const unsigned FLAC__CPUINFO_IA32_CPUID_CMOV = 0x00008000;
