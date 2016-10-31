@@ -45,7 +45,7 @@ private:
     struct Holder
     {
         Colour originalColour;
-        Component* comp;
+        Component* comp;        //<-- dangerous as the original component could get deleted
         int colourId;
         int ticksLeft;
     };
@@ -139,6 +139,7 @@ private:
     {
         highlighter.highlightComponent (button, TextButton::textColourOffId, Colours::red, 50);
         
+        // slightly contrived example to break this code
         if (button == button2)
             button2 = nullptr;
     }
