@@ -56,3 +56,5 @@ doxygen/doc
 extras/Projucer/JUCECompileEngine.dylib
 adc2016/01_ScopedPointer/Builds
 adc2016/01_ScopedPointer/JuceLibraryCode
+adc2016/02_unique_ptr/Builds
+adc2016/02_unique_ptr/JuceLibraryCode
