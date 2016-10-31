@@ -68,3 +68,5 @@ adc2016/06_weak_ptr/Builds
 adc2016/06_weak_ptr/JuceLibraryCode
 adc2016/07_ReferenceCountedObject/Builds
 adc2016/07_ReferenceCountedObject/JuceLibraryCode
+adc2016/08_shared_ptr/Builds
+adc2016/08_shared_ptr/JuceLibraryCode
