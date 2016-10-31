@@ -8,10 +8,10 @@ class ComponentCpp11 : public Component
 {
 public:
     template<typename ComponentType>
-    std::unique_ptr<ComponentType> addAndMakeVisible (std::unique_ptr<ComponentType> comp, int zOrder = -1)
+    std::unique_ptr<ComponentType>&& addAndMakeVisible (std::unique_ptr<ComponentType>&& comp, int zOrder = -1)
     {
         Component::addAndMakeVisible (comp.get(), zOrder);
-        return comp;
+        return std::move (comp);
     }
 };
 
