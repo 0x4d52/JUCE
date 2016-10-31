@@ -17,7 +17,7 @@ public:
         {
             Holder* const highlightedComponentHolder = highlightedComponents.getUnchecked (i);
             
-            if (Component* const originalComp = highlightedComponentHolder->comp.get())
+            if (Component* const originalComp = highlightedComponentHolder->comp)
                 originalComp->setColour (highlightedComponentHolder->colourId,
                                          highlightedComponentHolder->originalColour);
         }
@@ -45,7 +45,7 @@ private:
     struct Holder
     {
         Colour originalColour;
-        WeakReference<Component> comp;
+        Component* comp;
         int colourId;
         int ticksLeft;
     };
@@ -56,7 +56,7 @@ private:
         {
             Holder* const highlightedComponentHolder = highlightedComponents.getUnchecked (i);
 
-            if (highlightedComponentHolder->comp.get() == comp
+            if (highlightedComponentHolder->comp == comp
                 &&  highlightedComponentHolder->colourId == colourId)
                 return highlightedComponentHolder;
         }
@@ -72,7 +72,7 @@ private:
             
             if (--highlightedComponentHolder->ticksLeft == 0)
             {
-                if (Component* const originalComp = highlightedComponentHolder->comp.get())
+                if (Component* const originalComp = highlightedComponentHolder->comp)
                     originalComp->setColour (highlightedComponentHolder->colourId,
                                              highlightedComponentHolder->originalColour);
                     
@@ -138,6 +138,9 @@ private:
     void buttonClicked (Button* button) override
     {
         highlighter.highlightComponent (button, TextButton::textColourOffId, Colours::red, 50);
+        
+        if (button == button2)
+            button2 = nullptr;
     }
     
     //==========================================================================
