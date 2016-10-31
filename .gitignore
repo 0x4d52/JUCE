@@ -60,3 +60,5 @@ adc2016/02_unique_ptr/Builds
 adc2016/02_unique_ptr/JuceLibraryCode
 adc2016/03_OwnedArray/Builds
 adc2016/03_OwnedArray/JuceLibraryCode
+adc2016/04_vector_unique_ptr/Builds
+adc2016/04_vector_unique_ptr/JuceLibraryCode
