@@ -2,18 +2,9 @@
 #define MAINCOMPONENT_H_INCLUDED
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "ComponentCpp11.h"
 
-
-class ComponentCpp11 : public Component
-{
-public:
-    template<typename ComponentType>
-    std::unique_ptr<ComponentType>&& addAndMakeVisible (std::unique_ptr<ComponentType>&& comp, int zOrder = -1)
-    {
-        Component::addAndMakeVisible (comp.get(), zOrder);
-        return std::move (comp);
-    }
-};
+// C++14 - make_unique() - needs enabling in the Xcode settings - default in MSVC 2015
 
 class MainContentComponent   : public ComponentCpp11
 {

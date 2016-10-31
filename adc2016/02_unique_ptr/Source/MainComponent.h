@@ -2,19 +2,20 @@
 #define MAINCOMPONENT_H_INCLUDED
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "ComponentCpp11.h"
 
 // C++14 - make_unique() - needs enabling in the Xcode settings - default in MSVC 2015
 
-class MainContentComponent   : public Component
+class MainContentComponent   : public ComponentCpp11
 {
 public:
     //==============================================================================
     MainContentComponent()
     {
-        addAndMakeVisible ((slider1 = std::make_unique<Slider>()).get());
-        addAndMakeVisible ((slider2 = std::make_unique<Slider>()).get());
-        addAndMakeVisible ((button1 = std::make_unique<TextButton> ("Button 1")).get());
-        addAndMakeVisible ((button2 = std::make_unique<TextButton> ("Button 2")).get());
+        slider1 = addAndMakeVisible (std::make_unique<Slider>());
+        slider2 = addAndMakeVisible (std::make_unique<Slider>());
+        button1 = addAndMakeVisible (std::make_unique<TextButton> ("Button 1"));
+        button2 = addAndMakeVisible (std::make_unique<TextButton> ("Button 2"));
         
         setSize (400, 300);
     }

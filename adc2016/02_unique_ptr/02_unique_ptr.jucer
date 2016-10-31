@@ -5,6 +5,8 @@
               jucerVersion="4.2.4">
   <MAINGROUP id="AwgqFl" name="02_unique_ptr">
     <GROUP id="{EB6F49FB-4487-2BD1-06AE-F669E954A13E}" name="Source">
+      <FILE id="VzgByJ" name="ComponentCpp11.h" compile="0" resource="0"
+            file="../common/ComponentCpp11.h"/>
       <FILE id="YGaR1j" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="FVvVqS" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>
