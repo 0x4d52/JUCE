@@ -45,7 +45,7 @@ private:
     struct Holder
     {
         Colour originalColour;
-        Component* comp;        //<-- dangerous as the original component could get deleted
+        WeakReference<Component> comp;
         int colourId;
         int ticksLeft;
     };
@@ -139,7 +139,7 @@ private:
     {
         highlighter.highlightComponent (button, TextButton::textColourOffId, Colours::red, 50);
         
-        // slightly contrived example to break this code
+        // slightly contrived example but now doesn't break as we used a WeakReference
         if (button == button2)
             button2 = nullptr;
     }
