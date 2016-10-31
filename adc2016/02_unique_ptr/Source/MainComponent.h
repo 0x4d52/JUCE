@@ -2,17 +2,22 @@
 #define MAINCOMPONENT_H_INCLUDED
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include <memory>
 
 class MainContentComponent   : public Component
 {
 public:
     //==============================================================================
     MainContentComponent()
+    :   slider1 (new Slider()),
+        slider2 (new Slider()),
+        button1 (new TextButton ("Button 1")),
+        button2 (new TextButton ("Button 2"))
     {
-        addAndMakeVisible (slider1 = new Slider());
-        addAndMakeVisible (slider2 = new Slider());
-        addAndMakeVisible (button1 = new TextButton ("Button 1"));
-        addAndMakeVisible (button2 = new TextButton ("Button 2"));
+        addAndMakeVisible (slider1.get());
+        addAndMakeVisible (slider2.get());
+        addAndMakeVisible (button1.get());
+        addAndMakeVisible (button2.get());
         
         setSize (400, 300);
     }
