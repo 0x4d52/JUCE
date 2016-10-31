@@ -18,13 +18,13 @@ public:
         {
             Holder* const highlightedComponentHolder = highlightedComponents.getUnchecked (i);
             
-            if (Component* const originalComp = highlightedComponentHolder->comp.get())
+            if (std::shared_ptr<Component> originalComp = highlightedComponentHolder->comp.lock())
                 originalComp->setColour (highlightedComponentHolder->colourId,
                                          highlightedComponentHolder->originalColour);
         }
     }
     
-    void highlightComponent (Component* comp, int colourId, Colour highlightColour, int numTicks)
+    void highlightComponent (const std::shared_ptr<Component>& comp, int colourId, Colour highlightColour, int numTicks)
     {
         Holder* highlightedComponentHolder = findHolderForComponentAndColourId (comp, colourId);
         
@@ -46,18 +46,18 @@ private:
     struct Holder
     {
         Colour originalColour;
-        WeakReference<Component> comp;
+        std::weak_ptr<Component> comp;
         int colourId;
         int ticksLeft;
     };
 
-    Holder* findHolderForComponentAndColourId (Component* comp, int colourId)
+    Holder* findHolderForComponentAndColourId (const std::shared_ptr<Component>& comp, int colourId)
     {
         for (int i = highlightedComponents.size(); --i >= 0;)
         {
             Holder* const highlightedComponentHolder = highlightedComponents.getUnchecked (i);
 
-            if (highlightedComponentHolder->comp.get() == comp
+            if (highlightedComponentHolder->comp.lock() == comp
                 &&  highlightedComponentHolder->colourId == colourId)
                 return highlightedComponentHolder;
         }
@@ -73,7 +73,7 @@ private:
             
             if (--highlightedComponentHolder->ticksLeft == 0)
             {
-                if (Component* const originalComp = highlightedComponentHolder->comp.get())
+                if (std::shared_ptr<Component> originalComp = highlightedComponentHolder->comp.lock())
                     originalComp->setColour (highlightedComponentHolder->colourId,
                                              highlightedComponentHolder->originalColour);
                     
@@ -133,24 +133,33 @@ public:
 private:
     void sliderValueChanged (Slider* slider) override
     {
-        highlighter.highlightComponent (slider, Slider::thumbColourId, Colours::red, 50);
+        if (slider == slider1.get())
+            highlighter.highlightComponent (slider1, Slider::thumbColourId, Colours::red, 50);
+        else if (slider == slider2.get())
+            highlighter.highlightComponent (slider2, Slider::thumbColourId, Colours::green, 50);
     }
     
     void buttonClicked (Button* button) override
     {
-        highlighter.highlightComponent (button, TextButton::textColourOffId, Colours::red, 50);
-        
-        // slightly contrived example but now doesn't break as we used a weak_ptr
-        if (button == button2.get())
-            button2 = nullptr;
+        if (button == button1.get())
+        {
+            highlighter.highlightComponent (button1, TextButton::textColourOffId, Colours::red, 50);
+        }
+        else if (button == button2.get())
+        {
+            highlighter.highlightComponent (button2, TextButton::textColourOffId, Colours::green, 50);
+
+            if (button == button2.get())
+                button2 = nullptr;
+        }
     
     }
     
     //==========================================================================
-    std::unique_ptr<Slider>     slider1;
-    std::unique_ptr<Slider>     slider2;
-    std::unique_ptr<TextButton> button1;
-    std::unique_ptr<TextButton> button2;
+    std::shared_ptr<Slider>     slider1;
+    std::shared_ptr<Slider>     slider2;
+    std::shared_ptr<TextButton> button1;
+    std::shared_ptr<TextButton> button2;
     
     ComponentColourHighlighter highlighter;
     
