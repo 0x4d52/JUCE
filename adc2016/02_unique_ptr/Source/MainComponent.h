@@ -3,22 +3,18 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
-// C++11
+// C++14 - make_unique()
 
 class MainContentComponent   : public Component
 {
 public:
     //==============================================================================
     MainContentComponent()
-    :   slider1 (new Slider()),
-        slider2 (new Slider()),
-        button1 (new TextButton ("Button 1")),
-        button2 (new TextButton ("Button 2"))
     {
-        addAndMakeVisible (slider1.get());
-        addAndMakeVisible (slider2.get());
-        addAndMakeVisible (button1.get());
-        addAndMakeVisible (button2.get());
+        addAndMakeVisible ((slider1 = std::make_unique<Slider>()).get());
+        addAndMakeVisible ((slider2 = std::make_unique<Slider>()).get());
+        addAndMakeVisible ((button1 = std::make_unique<TextButton> ("Button 1")).get());
+        addAndMakeVisible ((button2 = std::make_unique<TextButton> ("Button 2")).get());
         
         setSize (400, 300);
     }
