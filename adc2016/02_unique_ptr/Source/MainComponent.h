@@ -3,7 +3,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
-// C++14 - make_unique()
+// C++14 - make_unique() - needs enabling in the Xcode settings - default in MSVC 2015
 
 class MainContentComponent   : public Component
 {
