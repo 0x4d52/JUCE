@@ -2,7 +2,7 @@
 #define MAINCOMPONENT_H_INCLUDED
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "ComponentCpp11.h"
+#include "../../common/ComponentCpp11.h"
 
 // C++14 - make_unique() - needs enabling in the Xcode settings - default in MSVC 2015
 
