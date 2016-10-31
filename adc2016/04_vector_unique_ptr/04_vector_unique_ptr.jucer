@@ -12,8 +12,10 @@
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
-        <CONFIGURATION name="Debug" isDebug="1" optimisation="1" targetName="04_vector_unique_ptr"/>
-        <CONFIGURATION name="Release" isDebug="0" optimisation="3" targetName="04_vector_unique_ptr"/>
+        <CONFIGURATION name="Debug" isDebug="1" optimisation="1" targetName="04_vector_unique_ptr"
+                       cppLanguageStandard="c++14"/>
+        <CONFIGURATION name="Release" isDebug="0" optimisation="3" targetName="04_vector_unique_ptr"
+                       cppLanguageStandard="c++14"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_core" path="../../modules"/>
