@@ -3,6 +3,9 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+using SharedPtrPool = std::vector<std::shared_ptr<void>>;
+
+//==============================================================================
 
 class MainContentComponent   : public AudioAppComponent,
                                private Button::Listener,
@@ -140,13 +143,13 @@ private:
 
     void checkForBuffersToFree()
     {
-        if (buffers.size() > 0)
+        if (pool.size() > 0)
         {
-            buffers.erase (std::remove_if (buffers.begin(), buffers.end(),
-                           [&](std::shared_ptr<void> buf)
-                           {
-                               return buf.use_count() == 3;
-                           }
+            pool.erase (std::remove_if (pool.begin(), pool.end(),
+                        [&](std::shared_ptr<void> buf)
+                        {
+                            return buf.use_count() == 3;
+                        }
             ));
         }
     }
@@ -173,7 +176,7 @@ private:
 
                     reader->read (newBuffer->getAudioSampleBuffer(), 0, reader->lengthInSamples, 0, true, true);
                     currentBuffer = newBuffer;
-                    buffers.push_back (newBuffer);
+                    pool.push_back (newBuffer);
                 }
                 else
                 {
@@ -208,7 +211,7 @@ private:
     TextButton clearButton;
 
     AudioFormatManager formatManager;
-    std::vector<std::shared_ptr<void>> buffers;
+    SharedPtrPool pool;
 
     ReferenceCountedBuffer::Ptr currentBuffer;
     String chosenPath;
