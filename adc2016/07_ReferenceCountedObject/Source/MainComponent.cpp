@@ -3,6 +3,8 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+typedef ReferenceCountedObjectPtr<ReferenceCountedObject> ReferenceCountedPtrBase;
+typedef ReferenceCountedArray<ReferenceCountedObject>     ReferenceCountedObjectPool;
 
 class MainContentComponent   : public AudioAppComponent,
                                private Button::Listener,
@@ -140,12 +142,12 @@ private:
 
     void checkForBuffersToFree()
     {
-        for (int i = buffers.size(); --i >= 0;)
+        for (int i = pool.size(); --i >= 0;)
         {
-            ReferenceCountedBuffer::Ptr buffer (buffers.getUnchecked (i));
+            ReferenceCountedPtrBase obj (pool.getUnchecked (i));
 
-            if (buffer->getReferenceCount() == 2)
-                buffers.remove (i);
+            if (obj->getReferenceCount() == 2)
+                pool.remove (i);
         }
     }
 
@@ -171,7 +173,7 @@ private:
 
                     reader->read (newBuffer->getAudioSampleBuffer(), 0, reader->lengthInSamples, 0, true, true);
                     currentBuffer = newBuffer;
-                    buffers.add (newBuffer);
+                    pool.add (newBuffer);
                 }
                 else
                 {
@@ -206,7 +208,7 @@ private:
     TextButton clearButton;
 
     AudioFormatManager formatManager;
-    ReferenceCountedArray<ReferenceCountedBuffer> buffers;
+    ReferenceCountedObjectPool pool;
 
     ReferenceCountedBuffer::Ptr currentBuffer;
     String chosenPath;

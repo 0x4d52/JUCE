@@ -3,6 +3,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+using SharedVoidPtr = std::shared_ptr<void>;
 using SharedPtrPool = std::vector<std::shared_ptr<void>>;
 
 //==============================================================================
@@ -146,9 +147,9 @@ private:
         if (pool.size() > 0)
         {
             pool.erase (std::remove_if (pool.begin(), pool.end(),
-                        [&](std::shared_ptr<void> buf)
+                        [&](SharedVoidPtr ptr)
                         {
-                            return buf.use_count() == 3;
+                            return ptr.use_count() == 3;
                         }
             ));
         }
@@ -170,9 +171,9 @@ private:
 
                 if (duration < 2)
                 {
-                    ReferenceCountedBuffer::Ptr newBuffer = std::make_shared<ReferenceCountedBuffer>(file.getFileName(),
-                                                                                                     reader->numChannels,
-                                                                                                     reader->lengthInSamples);
+                    ReferenceCountedBuffer::Ptr newBuffer = std::make_shared<ReferenceCountedBuffer> (file.getFileName(),
+                                                                                                      reader->numChannels,
+                                                                                                      reader->lengthInSamples);
 
                     reader->read (newBuffer->getAudioSampleBuffer(), 0, reader->lengthInSamples, 0, true, true);
                     currentBuffer = newBuffer;
