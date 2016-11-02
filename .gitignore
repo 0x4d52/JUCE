@@ -70,3 +70,5 @@ adc2016/07_ReferenceCountedObject/Builds
 adc2016/07_ReferenceCountedObject/JuceLibraryCode
 adc2016/08_shared_ptr/Builds
 adc2016/08_shared_ptr/JuceLibraryCode
+adc2016/09_benchmark/Builds
+adc2016/09_benchmark/JuceLibraryCode
