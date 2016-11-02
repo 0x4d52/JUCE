@@ -143,7 +143,7 @@ private:
         if (buffers.size() > 0)
         {
             buffers.erase (std::remove_if (buffers.begin(), buffers.end(),
-                           [&](ReferenceCountedBuffer::Ptr buf)
+                           [&](std::shared_ptr<void> buf)
                            {
                                return buf.use_count() == 3;
                            }
@@ -208,7 +208,7 @@ private:
     TextButton clearButton;
 
     AudioFormatManager formatManager;
-    std::vector<ReferenceCountedBuffer::Ptr> buffers;
+    std::vector<std::shared_ptr<void>> buffers;
 
     ReferenceCountedBuffer::Ptr currentBuffer;
     String chosenPath;
