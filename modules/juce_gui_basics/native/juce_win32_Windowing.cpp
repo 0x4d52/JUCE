@@ -564,7 +564,8 @@ namespace IconConverters
 }
 
 //==============================================================================
-class HWNDComponentPeer  : public ComponentPeer
+class HWNDComponentPeer  : public ComponentPeer,
+                           private Timer
    #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
     , public ModifierKeyReceiver
    #endif
@@ -1303,6 +1304,9 @@ private:
                 case WM_NCMOUSEHOVER:
                 case WM_MOUSEHOVER:
                 case WM_TOUCH:
+                case WM_POINTERUPDATE:
+                case WM_POINTERDOWN:
+                case WM_POINTERUP:
                     return isHWNDBlockedByModalComponents (m.hwnd);
 
                 case WM_NCLBUTTONDOWN:
@@ -2031,6 +2035,17 @@ private:
         return true;
     }
 
+    TOUCHINPUT emulateTouchEventFromPointer (LPARAM lParam, WPARAM wParam)
+    {
+        TOUCHINPUT touchInput;
+
+        touchInput.dwID = GET_POINTERID_WPARAM (wParam);
+        touchInput.x = GET_X_LPARAM (lParam) * 100;
+        touchInput.y = GET_Y_LPARAM (lParam) * 100;
+
+        return touchInput;
+    }
+
     //==============================================================================
     void sendModifierKeyChangeIfNeeded()
     {
@@ -2520,13 +2535,16 @@ private:
                 return 1;
 
             //==============================================================================
+            case WM_POINTERUPDATE:      handleTouchInput (emulateTouchEventFromPointer (lParam, wParam), false, false); return 0;
             case WM_MOUSEMOVE:          doMouseMove (getPointFromLParam (lParam), false); return 0;
             case WM_MOUSELEAVE:         doMouseExit(); return 0;
 
+            case WM_POINTERDOWN:        handleTouchInput (emulateTouchEventFromPointer (lParam, wParam), true, false); return 0;
             case WM_LBUTTONDOWN:
             case WM_MBUTTONDOWN:
             case WM_RBUTTONDOWN:        doMouseDown (getPointFromLParam (lParam), wParam); return 0;
 
+            case WM_POINTERUP:          handleTouchInput (emulateTouchEventFromPointer (lParam, wParam), false, true); return 0;
             case WM_LBUTTONUP:
             case WM_MBUTTONUP:
             case WM_RBUTTONUP:          doMouseUp (getPointFromLParam (lParam), wParam); return 0;
@@ -2559,10 +2577,16 @@ private:
             case WM_WINDOWPOSCHANGING:     return handlePositionChanging (*(WINDOWPOS*) lParam);
 
             case WM_WINDOWPOSCHANGED:
-                if (handlePositionChanged())
-                    return 0;
+            {
+                const WINDOWPOS& wPos = *reinterpret_cast<WINDOWPOS*> (lParam);
 
-                break;
+                if ((wPos.flags & SWP_NOMOVE) != 0 && (wPos.flags & SWP_NOSIZE) != 0)
+                    startTimer(100);
+                else
+                    if (handlePositionChanged())
+                        return 0;
+            }
+            break;
 
             //==============================================================================
             case WM_KEYDOWN:
@@ -3026,6 +3050,12 @@ private:
         JUCE_DECLARE_NON_COPYABLE (IMEHandler)
     };
 
+    void timerCallback() override
+    {
+        handlePositionChanged();
+        stopTimer();
+    }
+
     IMEHandler imeHandler;
 
     //==============================================================================
@@ -3040,7 +3070,7 @@ ComponentPeer* Component::createNewPeer (int styleFlags, void* parentHWND)
     return new HWNDComponentPeer (*this, styleFlags, (HWND) parentHWND, false);
 }
 
-ComponentPeer* createNonRepaintingEmbeddedWindowsPeer (Component& component, void* parentHWND)
+JUCE_API ComponentPeer* createNonRepaintingEmbeddedWindowsPeer (Component& component, void* parentHWND)
 {
     return new HWNDComponentPeer (component, ComponentPeer::windowIgnoresMouseClicks,
                                   (HWND) parentHWND, true);

@@ -38,7 +38,7 @@
 
   ID:               juce_core
   vendor:           juce
-  version:          4.2.4
+  version:          4.3.0
   name:             JUCE core classes
   description:      The essential set of basic JUCE classes, as required by all the other JUCE modules. Includes text, container, memory, threading and i/o functionality.
   website:          http://www.juce.com/juce
@@ -305,6 +305,7 @@ extern JUCE_API void JUCE_CALLTYPE logAssertion (const char* file, int line) noe
 #include "network/juce_NamedPipe.h"
 #include "network/juce_Socket.h"
 #include "network/juce_URL.h"
+#include "network/juce_WebInputStream.h"
 #include "time/juce_PerformanceCounter.h"
 #include "unit_tests/juce_UnitTest.h"
 #include "xml/juce_XmlDocument.h"
