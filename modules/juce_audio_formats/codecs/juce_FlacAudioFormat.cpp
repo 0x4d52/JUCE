@@ -90,7 +90,8 @@ namespace FlacNamespace
 
  #undef VERSION
  #define VERSION "1.3.1"
-
+    
+ #define FLAC__HAS_OGG 0
  #define FLAC__NO_DLL 1
 
  #if JUCE_MSVC
@@ -141,6 +142,15 @@ namespace FlacNamespace
  #include "flac/libFLAC/lpc_flac.c"
  #include "flac/libFLAC/md5.c"
  #include "flac/libFLAC/memory.c"
+ #include "flac/libFLAC/lpc_intrin_avx2.c"
+ #include "flac/libFLAC/lpc_intrin_sse.c"
+ #include "flac/libFLAC/lpc_intrin_sse2.c"
+ #include "flac/libFLAC/lpc_intrin_sse41.c"
+ #include "flac/libFLAC/fixed_intrin_sse2.c"
+ #include "flac/libFLAC/fixed_intrin_ssse3.c"
+ #include "flac/libFLAC/stream_encoder_intrin_avx2.c"
+ #include "flac/libFLAC/stream_encoder_intrin_sse2.c"
+ #include "flac/libFLAC/stream_encoder_intrin_ssse3.c"
  #include "flac/libFLAC/stream_decoder.c"
  #include "flac/libFLAC/stream_encoder.c"
  #include "flac/libFLAC/stream_encoder_framing.c"

@@ -44,7 +44,7 @@ public:
     }
 
     /** Constructor. */
-    LinearSmoothedValue (FloatType initialValue) noexcept
+    LinearSmoothedValue (PARAMETER_TYPE (FloatType) initialValue) noexcept
         : currentValue (initialValue), target (initialValue), step (0), countdown (0), stepsToTarget (0)
     {
     }
@@ -60,7 +60,7 @@ public:
     }
 
     /** Set a new target value. */
-    void setValue (FloatType newValue) noexcept
+    void setValue (PARAMETER_TYPE (FloatType) newValue) noexcept
     {
         if (target != newValue)
         {

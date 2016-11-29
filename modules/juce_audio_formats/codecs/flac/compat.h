@@ -39,7 +39,17 @@
 #ifndef FLAC__SHARE__COMPAT_H
 #define FLAC__SHARE__COMPAT_H
 
+// FLACCHECK
+
+#if defined _WIN32 && !defined __CYGWIN__
+/* where MSVC puts unlink() */
+# include <io.h>
+#else
+# include <unistd.h>
+#endif
+
 #if defined _MSC_VER || defined __BORLANDC__ || defined __MINGW32__
+#include <sys/types.h> /* for off_t */ // FLACCHECK
 #define FLAC__off_t __int64 /* use this instead of off_t to fix the 2 GB limit */
 #if !defined __MINGW32__
 #define fseeko _fseeki64
@@ -52,6 +62,13 @@
 #endif
 #else
 #define FLAC__off_t off_t
+#endif
+
+// FLACCHCK
+
+#if HAVE_INTTYPES_H
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #endif
 
 #if defined(_MSC_VER)
@@ -74,7 +91,10 @@
 
 #define FLAC__U64L(x) x##ULL
 
-#if defined _MSC_VER || defined __BORLANDC__ || defined __MINGW32__
+#if defined _MSC_VER || defined __MINGW32__
+#define FLAC__STRCASECMP _stricmp
+#define FLAC__STRNCASECMP _strnicmp
+#elif defined __BORLANDC__
 #define FLAC__STRCASECMP stricmp
 #define FLAC__STRNCASECMP strnicmp
 #else
@@ -82,13 +102,35 @@
 #define FLAC__STRNCASECMP strncasecmp
 #endif
 
+#if defined _MSC_VER || defined __MINGW32__ || defined __CYGWIN__ || defined __EMX__
+#include <io.h> /* for _setmode(), chmod() */
+#include <fcntl.h> /* for _O_BINARY */
+#else
+#include <unistd.h> /* for chown(), unlink() */
+#endif
+
+#if defined _MSC_VER || defined __BORLANDC__ || defined __MINGW32__
+#if defined __BORLANDC__
+#include <utime.h> /* for utime() */
+#else
+#include <sys/utime.h> /* for utime() */
+#endif
+#else
+#include <sys/types.h> /* some flavors of BSD (like OS X) require this to get time_t */
+#include <utime.h> /* for utime() */
+#endif
+
 #if defined _MSC_VER
-#  if _MSC_VER >= 1600
+#  if _MSC_VER >= 1800
+#    include <inttypes.h>
+#  elif _MSC_VER >= 1600
 /* Visual Studio 2010 has decent C99 support */
+#    include <stdint.h>
 #    define PRIu64 "llu"
 #    define PRId64 "lld"
 #    define PRIx64 "llx"
 #  else
+#    include <limits.h>
 #    ifndef UINT32_MAX
 #      define UINT32_MAX _UI32_MAX
 #    endif
@@ -108,23 +150,26 @@
 
 #ifdef _WIN32
 /* All char* strings are in UTF-8 format. Added to support Unicode files on Windows */
-#include "win_utf8_io.h"
 
+#include "win_utf8_io.h"
 #define flac_printf printf_utf8
 #define flac_fprintf fprintf_utf8
 #define flac_vfprintf vfprintf_utf8
-#define flac_fopen fopen_utf8
-#define flac_chmod chmod_utf8
-#define flac_utime utime_utf8
-#define flac_unlink unlink_utf8
-#define flac_rename rename_utf8
-#define flac_stat _stat64_utf8
+
+#include "windows_unicode_filenames.h"
+#define flac_fopen flac_internal_fopen_utf8
+#define flac_chmod flac_internal_chmod_utf8
+#define flac_utime flac_internal_utime_utf8
+#define flac_unlink flac_internal_unlink_utf8
+#define flac_rename flac_internal_rename_utf8
+#define flac_stat flac_internal_stat64_utf8
 
 #else
 
 #define flac_printf printf
 #define flac_fprintf fprintf
 #define flac_vfprintf vfprintf
+
 #define flac_fopen fopen
 #define flac_chmod chmod
 #define flac_utime utime
@@ -153,8 +198,9 @@
  * snprintf as well as Microsoft Visual Studio which has an non-standards
  * conformant snprint_s function.
  *
- * This function wraps the MS version to behave more like the the ISO version.
+ * This function wraps the MS version to behave more like the ISO version.
  */
+#include <stdarg.h>
 #ifdef __cplusplus
 extern "C" {
 #endif

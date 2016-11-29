@@ -153,6 +153,7 @@ extern "C" {
 /** The maximum Rice partition order permitted by the FLAC Subset. */
 #define FLAC__SUBSET_MAX_RICE_PARTITION_ORDER (8u)
 
+#if 0
 /** The version string of the release, stamped onto the libraries and binaries.
  *
  * \note
@@ -166,7 +167,8 @@ extern FLAC_API const char *FLAC__VERSION_STRING;
  *  VORBIS_COMMENT the trailing null is stripped.
  */
 extern FLAC_API const char *FLAC__VENDOR_STRING;
-
+#endif 
+    
 /** The byte string representation of the beginning of a FLAC stream. */
 extern FLAC_API const FLAC__byte FLAC__STREAM_SYNC_STRING[4]; /* = "fLaC" */
 
@@ -512,8 +514,8 @@ typedef enum {
 	FLAC__METADATA_TYPE_UNDEFINED = 7,
 	/**< marker to denote beginning of undefined type range; this number will increase as new metadata types are added */
 
-    FLAC__MAX_METADATA_TYPE = FLAC__MAX_METADATA_TYPE_CODE,
-    /**< No type will ever be greater than this. There is not enough room in the protocol block. */
+	FLAC__MAX_METADATA_TYPE = FLAC__MAX_METADATA_TYPE_CODE,
+	/**< No type will ever be greater than this. There is not enough room in the protocol block. */
 } FLAC__MetadataType;
 
 /** Maps a FLAC__MetadataType to a C string.

@@ -1,6 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2000-2009  Josh Coalson
- * Copyright (C) 2011-2014  Xiph.Org Foundation
+ * Copyright (C) 2013-2014  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,17 +29,39 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PRIVATE__STREAM_ENCODER_FRAMING_H
-#define FLAC__PRIVATE__STREAM_ENCODER_FRAMING_H
+#ifdef _WIN32
 
-#include "../../../format.h"
-#include "bitwriter.h"
+#ifndef flac__windows_unicode_filenames_h
+#define flac__windows_unicode_filenames_h
 
-FLAC__bool FLAC__add_metadata_block(const FLAC__StreamMetadata *metadata, FLAC__BitWriter *bw);
-FLAC__bool FLAC__frame_add_header(const FLAC__FrameHeader *header, FLAC__BitWriter *bw);
-FLAC__bool FLAC__subframe_add_constant(const FLAC__Subframe_Constant *subframe, unsigned subframe_bps, unsigned wasted_bits, FLAC__BitWriter *bw);
-FLAC__bool FLAC__subframe_add_fixed(const FLAC__Subframe_Fixed *subframe, unsigned residual_samples, unsigned subframe_bps, unsigned wasted_bits, FLAC__BitWriter *bw);
-FLAC__bool FLAC__subframe_add_lpc(const FLAC__Subframe_LPC *subframe, unsigned residual_samples, unsigned subframe_bps, unsigned wasted_bits, FLAC__BitWriter *bw);
-FLAC__bool FLAC__subframe_add_verbatim(const FLAC__Subframe_Verbatim *subframe, unsigned samples, unsigned subframe_bps, unsigned wasted_bits, FLAC__BitWriter *bw);
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/utime.h>
+#include "ordinals.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void flac_internal_set_utf8_filenames(FLAC__bool flag);
+FLAC__bool flac_internal_get_utf8_filenames(void);
+#define flac_set_utf8_filenames flac_internal_set_utf8_filenames
+#define flac_get_utf8_filenames flac_internal_get_utf8_filenames
+
+FILE* flac_internal_fopen_utf8(const char *filename, const char *mode);
+int flac_internal_stat64_utf8(const char *path, struct __stat64 *buffer);
+int flac_internal_chmod_utf8(const char *filename, int pmode);
+int flac_internal_utime_utf8(const char *filename, struct utimbuf *times);
+int flac_internal_unlink_utf8(const char *filename);
+int flac_internal_rename_utf8(const char *oldname, const char *newname);
+
+#include <windows.h>
+HANDLE WINAPI flac_internal_CreateFile_utf8(const char *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+#define CreateFile_utf8 flac_internal_CreateFile_utf8
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif
 #endif
