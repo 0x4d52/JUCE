@@ -32,6 +32,13 @@
  #define JUCE_VST3HEADERS_INCLUDE_HEADERS_ONLY 1
 #endif
 
+#if (_WIN32 || _WIN64)
+ // old VS2008 needs this to include the VST3 SDK
+ #ifndef nullptr
+  #define nullptr (0)
+ #endif
+#endif
+
 #include "../../juce_audio_processors/format_types/juce_VST3Headers.h"
 
 #undef JUCE_VST3HEADERS_INCLUDE_HEADERS_ONLY
@@ -1385,8 +1392,12 @@ public:
         FUnknownPtr<IBStream> stateRefHolder (state); // just in case the caller hasn't properly ref-counted the stream object
 
         if (state->seek (0, IBStream::kIBSeekSet, nullptr) == kResultTrue)
-            if (readFromMemoryStream (state) || readFromUnknownStream (state))
+        {
+            if (! getHostType().isFruityLoops() && readFromMemoryStream (state))
                 return kResultTrue;
+            if (readFromUnknownStream (state))
+                return kResultTrue;
+        }
 
         return kResultFalse;
     }
