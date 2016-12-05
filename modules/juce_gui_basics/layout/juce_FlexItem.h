@@ -111,6 +111,7 @@ public:
     {
         Margin() noexcept;              /**< Creates a margin of size zero. */
         Margin (float size) noexcept;   /**< Creates a margin with this size on all sides. */
+        Margin (float top, float right, float bottom, float left) noexcept;   /**< Creates a margin with these sizes. */
 
         float left;   /**< Left margin size */
         float right;  /**< Right margin size */
