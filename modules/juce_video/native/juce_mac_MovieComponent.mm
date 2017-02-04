@@ -42,7 +42,7 @@ struct MovieComponent::Pimpl
 
             auto frame = CGRectMake (0, 0, nativeSize.width, nativeSize.height);
 
-            view = [[NSView alloc] initWithFrame: frame];
+            view = [[NSView alloc] initWithFrame: NSRectFromCGRect (frame)];
             [view setHidden: NO];
             [view setNeedsDisplay: YES];
             [view setWantsLayer: YES];
@@ -216,7 +216,7 @@ void MovieComponent::resized()
     JUCE_AUTORELEASEPOOL
     {
         auto frame = CGRectMake (0, 0, (CGFloat) getWidth(), (CGFloat) getHeight());
-        [pimpl->view setFrame: frame];
+        [pimpl->view setFrame: NSRectFromCGRect (frame)];
         [pimpl->playerLayer setFrame: frame];
     }
 }
