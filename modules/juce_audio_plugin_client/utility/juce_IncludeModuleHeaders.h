@@ -46,3 +46,7 @@ namespace juce
 }
 
 extern AudioProcessor* JUCE_API JUCE_CALLTYPE createPluginFilterOfType (AudioProcessor::WrapperType);
+
+#if JUCE_AUDIOPLUGINCLIENT_DISABLE_AUTOMATIC_SHUTDOWN
+ #define shutdownJuce_GUI String
+#endif
