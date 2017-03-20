@@ -469,13 +469,13 @@ struct AudioProcessorValueTreeState::ComboBoxAttachment::Pimpl  : private Attach
     void setValue (float newValue) override
     {
         const ScopedLock selfCallbackLock (selfCallbackMutex);
-
+        
         {
             ScopedValueSetter<bool> svs (ignoreCallbacks, true);
-            combo.setSelectedItemIndex (roundToInt (newValue), sendNotificationSync);
+            combo.setSelectedId (roundToInt (newValue) + 1, sendNotificationSync);
         }
     }
-
+    
     void comboBoxChanged (ComboBox* comboBox) override
     {
         const ScopedLock selfCallbackLock (selfCallbackMutex);
