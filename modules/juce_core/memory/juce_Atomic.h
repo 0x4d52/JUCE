@@ -151,7 +151,8 @@ public:
         This is exposed publicly in case you need to manipulate it directly
         for performance reasons.
     */
-    volatile Type value;
+    //volatile
+    Type value;
 
 private:
     template <typename Dest, typename Source>
