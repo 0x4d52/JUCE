@@ -49,6 +49,7 @@
 
 
 #pragma once
+#define JUCE_AUDIO_PROCESSORS_H_INCLUDED
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -101,7 +102,6 @@ namespace juce
 {
 
 class AudioProcessor;
-#include "processors/juce_AudioPlayHead.h"
 #include "processors/juce_AudioProcessorEditor.h"
 #include "processors/juce_AudioProcessorListener.h"
 #include "processors/juce_AudioProcessorParameter.h"

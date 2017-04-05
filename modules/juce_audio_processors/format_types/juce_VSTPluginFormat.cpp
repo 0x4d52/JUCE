@@ -224,14 +224,11 @@ static pointer_sized_int VSTINTERFACECALL audioMaster (VstEffectInterface* effec
 //==============================================================================
 #if JUCE_LINUX
 
-extern Display* display;
-extern XContext windowHandleXContext;
-
 namespace
 {
     static bool xErrorTriggered = false;
 
-    static int temporaryErrorHandler (Display*, XErrorEvent*)
+    static int temporaryErrorHandler (::Display*, XErrorEvent*)
     {
         xErrorTriggered = true;
         return 0;
@@ -249,8 +246,13 @@ namespace
         unsigned char* data;
         Atom userType;
 
-        XGetWindowProperty (display, handle, atom, 0, 1, false, AnyPropertyType,
-                            &userType,  &userSize, &userCount, &bytes, &data);
+        {
+            ScopedXDisplay xDisplay;
+            ::Display* display = xDisplay.get();
+
+            XGetWindowProperty (display, handle, atom, 0, 1, false, AnyPropertyType,
+                                &userType,  &userSize, &userCount, &bytes, &data);
+        }
 
         XSetErrorHandler (oldErrorHandler);
 
@@ -263,7 +265,12 @@ namespace
         Window* childWindows;
         unsigned int numChildren = 0;
 
-        XQueryTree (display, windowToCheck, &rootWindow, &parentWindow, &childWindows, &numChildren);
+        {
+            ScopedXDisplay xDisplay;
+            ::Display* display = xDisplay.get();
+
+            XQueryTree (display, windowToCheck, &rootWindow, &parentWindow, &childWindows, &numChildren);
+        }
 
         if (numChildren > 0)
             return childWindows [0];
@@ -463,7 +470,7 @@ public:
             }
         }
 
-        return String();
+        return {};
     }
    #endif
   #else
@@ -974,7 +981,7 @@ public:
                 return String (pinProps.text, sizeof (pinProps.text));
         }
 
-        return String();
+        return {};
     }
 
     bool isInputChannelStereoPair (int index) const override
@@ -998,7 +1005,7 @@ public:
                 return String (pinProps.text, sizeof (pinProps.text));
         }
 
-        return String();
+        return {};
     }
 
     bool isOutputChannelStereoPair (int index) const override
@@ -1690,12 +1697,15 @@ private:
 
                     switch (position.frameRate)
                     {
-                        case AudioPlayHead::fps24:       setHostTimeFrameRate (0, 24.0,  position.timeInSeconds); break;
-                        case AudioPlayHead::fps25:       setHostTimeFrameRate (1, 25.0,  position.timeInSeconds); break;
-                        case AudioPlayHead::fps2997:     setHostTimeFrameRate (2, 29.97, position.timeInSeconds); break;
-                        case AudioPlayHead::fps30:       setHostTimeFrameRate (3, 30.0,  position.timeInSeconds); break;
-                        case AudioPlayHead::fps2997drop: setHostTimeFrameRate (4, 29.97, position.timeInSeconds); break;
-                        case AudioPlayHead::fps30drop:   setHostTimeFrameRate (5, 29.97, position.timeInSeconds); break;
+                        case AudioPlayHead::fps24:       setHostTimeFrameRate (vstSmpteRateFps24, 24.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps25:       setHostTimeFrameRate (vstSmpteRateFps25, 25.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps30:       setHostTimeFrameRate (vstSmpteRateFps30, 30.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps60:       setHostTimeFrameRate (vstSmpteRateFps60, 60.0, position.timeInSeconds); break;
+
+                        case AudioPlayHead::fps2997:     setHostTimeFrameRateDrop (vstSmpteRateFps2997,     30.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps2997drop: setHostTimeFrameRateDrop (vstSmpteRateFps2997drop, 30.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps30drop:   setHostTimeFrameRateDrop (vstSmpteRateFps30drop,   30.0, position.timeInSeconds); break;
+                        case AudioPlayHead::fps60drop:   setHostTimeFrameRateDrop (vstSmpteRateFps599,      60.0, position.timeInSeconds); break;
                         default: break;
                     }
 
@@ -1784,6 +1794,11 @@ private:
         vstHostTime.smpteOffset     = (int32) (currentTime * 80.0 * frameRate + 0.5);
     }
 
+    void setHostTimeFrameRateDrop (long frameRateIndex, double frameRate, double currentTime) noexcept
+    {
+        setHostTimeFrameRate (frameRateIndex, frameRate * 1000.0 / 1001.0, currentTime);
+    }
+
     bool restoreProgramSettings (const fxProgram* const prog)
     {
         if (compareMagic (prog->chunkMagic, "CcnK")
@@ -1803,7 +1818,7 @@ private:
     String getTextForOpcode (const int index, const VstHostToPlugInOpcodes opcode) const
     {
         if (vstEffect == nullptr)
-            return String();
+            return {};
 
         jassert (index >= 0 && index < vstEffect->numParameters);
         char nm[256] = { 0 };
@@ -2025,6 +2040,7 @@ public:
        #elif JUCE_LINUX
         pluginWindow = None;
         pluginProc = None;
+        display = XWindowSystem::getInstance()->displayRef();
 
        #elif JUCE_MAC
         ignoreUnused (recursiveResize, pluginRefusesToResize, alreadyInside);
@@ -2053,6 +2069,8 @@ public:
         carbonWrapper = nullptr;
         #endif
         cocoaWrapper = nullptr;
+       #elif JUCE_LINUX
+        display = XWindowSystem::getInstance()->displayUnref();
        #endif
 
         activeVSTWindows.removeFirstMatchingValue (this);
@@ -2253,6 +2271,7 @@ private:
     void* originalWndProc;
     int sizeCheckCount;
    #elif JUCE_LINUX
+    ::Display* display;
     Window pluginWindow;
     EventProcPtr pluginProc;
    #endif
