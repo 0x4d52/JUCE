@@ -50,6 +50,7 @@
 
 
 #pragma once
+#define JUCE_GUI_BASICS_H_INCLUDED
 
 #include <juce_graphics/juce_graphics.h>
 #include <juce_data_structures/juce_data_structures.h>
@@ -119,6 +120,7 @@ class MarkerList;
 class RelativeRectangle;
 class MouseEvent;
 struct MouseWheelDetails;
+struct PenDetails;
 class ToggleButton;
 class TextButton;
 class AlertWindow;
@@ -280,6 +282,10 @@ class FlexBox;
 #include "lookandfeel/juce_LookAndFeel_V2.h"
 #include "lookandfeel/juce_LookAndFeel_V1.h"
 #include "lookandfeel/juce_LookAndFeel_V3.h"
+
+#if JUCE_LINUX
+ #include "native/juce_linux_X11.h"
+#endif
 
 // these classes are C++11-only
 #if JUCE_COMPILER_SUPPORTS_INITIALIZER_LISTS && JUCE_COMPILER_SUPPORTS_LAMBDAS

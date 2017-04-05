@@ -138,6 +138,7 @@ public:
     {
         if (MessageManager::getInstance()->isThisTheMessageThread())
         {
+            frontWindow = nullptr;
             android.activity.callVoidMethod (JuceAppActivity.deleteView, view.get());
         }
         else
@@ -365,7 +366,13 @@ public:
 
     void toFront (bool makeActive) override
     {
-        view.callVoidMethod (ComponentPeerView.bringToFront);
+        // Avoid calling bringToFront excessively: it's very slow
+        if (frontWindow != this)
+        {
+            view.callVoidMethod (ComponentPeerView.bringToFront);
+
+            frontWindow = this;
+        }
 
         if (makeActive)
             grabFocus();
@@ -385,7 +392,8 @@ public:
         lastMousePos = pos;
 
         // this forces a mouse-enter/up event, in case for some reason we didn't get a mouse-up before.
-        handleMouseEvent (index, pos, currentModifiers.withoutMouseButtons(), MouseInputSource::invalidPressure, time);
+        handleMouseEvent (MouseInputSource::InputSourceType::touch, pos, currentModifiers.withoutMouseButtons(),
+                          MouseInputSource::invalidPressure, MouseInputSource::invalidOrientation, time, {}, index);
 
         if (isValidPeer (this))
             handleMouseDragCallback (index, sysPos, time);
@@ -399,8 +407,8 @@ public:
         jassert (index < 64);
         touchesDown = (touchesDown | (1 << (index & 63)));
         currentModifiers = currentModifiers.withoutMouseButtons().withFlags (ModifierKeys::leftButtonModifier);
-        handleMouseEvent (index, pos, currentModifiers.withoutMouseButtons().withFlags (ModifierKeys::leftButtonModifier),
-                          MouseInputSource::invalidPressure, time);
+        handleMouseEvent (MouseInputSource::InputSourceType::touch, pos, currentModifiers.withoutMouseButtons().withFlags (ModifierKeys::leftButtonModifier),
+                          MouseInputSource::invalidPressure, MouseInputSource::invalidOrientation, time, {}, index);
     }
 
     void handleMouseUpCallback (int index, Point<float> pos, int64 time)
@@ -414,7 +422,8 @@ public:
         if (touchesDown == 0)
             currentModifiers = currentModifiers.withoutMouseButtons();
 
-        handleMouseEvent (index, pos, currentModifiers.withoutMouseButtons(), MouseInputSource::invalidPressure, time);
+        handleMouseEvent (MouseInputSource::InputSourceType::touch, pos, currentModifiers.withoutMouseButtons(), MouseInputSource::invalidPressure,
+                          MouseInputSource::invalidOrientation, time, {}, index);
     }
 
     void handleKeyDownCallback (int k, int kc)
@@ -571,6 +580,7 @@ private:
     bool usingAndroidGraphics, fullScreen;
     int sizeAllocated;
     float scale;
+    static AndroidComponentPeer* frontWindow;
 
     struct PreallocatedImage  : public ImagePixelData
     {
@@ -629,6 +639,7 @@ private:
 ModifierKeys AndroidComponentPeer::currentModifiers = 0;
 Point<float> AndroidComponentPeer::lastMousePos;
 int64 AndroidComponentPeer::touchesDown = 0;
+AndroidComponentPeer* AndroidComponentPeer::frontWindow = nullptr;
 
 //==============================================================================
 #define JUCE_VIEW_CALLBACK(returnType, javaMethodName, params, juceMethodInvocation) \
@@ -673,7 +684,12 @@ Desktop::DisplayOrientation Desktop::getCurrentOrientation() const
 
 bool MouseInputSource::SourceList::addSource()
 {
-    addSource (sources.size(), false);
+    addSource (sources.size(), MouseInputSource::InputSourceType::touch);
+    return true;
+}
+
+bool MouseInputSource::SourceList::canUseTouch()
+{
     return true;
 }
 
@@ -728,7 +744,8 @@ bool JUCE_CALLTYPE NativeMessageBox::showOkCancelBox (AlertWindow::AlertIconType
     jassert (callback != nullptr); // on android, all alerts must be non-modal!!
 
     android.activity.callVoidMethod (JuceAppActivity.showOkCancelBox, javaString (title).get(),
-                                     javaString (message).get(), (jlong) (pointer_sized_int) callback);
+                                     javaString (message).get(), (jlong) (pointer_sized_int) callback,
+                                     javaString (TRANS ("OK")).get(), javaString (TRANS ("Cancel")).get());
     return false;
 }
 
@@ -741,6 +758,19 @@ int JUCE_CALLTYPE NativeMessageBox::showYesNoCancelBox (AlertWindow::AlertIconTy
 
     android.activity.callVoidMethod (JuceAppActivity.showYesNoCancelBox, javaString (title).get(),
                                      javaString (message).get(), (jlong) (pointer_sized_int) callback);
+    return 0;
+}
+
+int JUCE_CALLTYPE NativeMessageBox::showYesNoBox (AlertWindow::AlertIconType /*iconType*/,
+                                                   const String& title, const String& message,
+                                                   Component* /*associatedComponent*/,
+                                                   ModalComponentManager::Callback* callback)
+{
+    jassert (callback != nullptr); // on android, all alerts must be non-modal!!
+
+    android.activity.callVoidMethod (JuceAppActivity.showOkCancelBox, javaString (title).get(),
+                                     javaString (message).get(), (jlong) (pointer_sized_int) callback,
+                                     javaString (TRANS ("Yes")).get(), javaString (TRANS ("No")).get());
     return 0;
 }
 
