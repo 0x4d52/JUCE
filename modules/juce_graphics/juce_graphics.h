@@ -41,7 +41,7 @@
 
   dependencies:     juce_events
   OSXFrameworks:    Cocoa QuartzCore
-  iOSFrameworks:    CoreGraphics CoreText QuartzCore
+  iOSFrameworks:    CoreGraphics CoreImage CoreText QuartzCore
   linuxPackages:    x11 xinerama xext freetype2
 
  END_JUCE_MODULE_DECLARATION
@@ -49,7 +49,8 @@
 *******************************************************************************/
 
 
-#pragma once // %%
+#pragma once
+#define JUCE_GRAPHICS_H_INCLUDED
 
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
