@@ -932,6 +932,8 @@ public:
             case kSMPTETimeType30:          info.frameRate = AudioPlayHead::fps30; break;
             case kSMPTETimeType2997:        info.frameRate = AudioPlayHead::fps2997; break;
             case kSMPTETimeType2997Drop:    info.frameRate = AudioPlayHead::fps2997drop; break;
+            case kSMPTETimeType60:          info.frameRate = AudioPlayHead::fps60; break;
+            case kSMPTETimeType60Drop:      info.frameRate = AudioPlayHead::fps60drop; break;
             default:                        info.frameRate = AudioPlayHead::fpsUnknown; break;
         }
 
@@ -1115,9 +1117,9 @@ public:
 
         // set buffer pointers to minimize copying
         {
-            int chIdx = 0, numChannels;
-            bool interleaved;
-            AudioBufferList* buffer;
+            int chIdx = 0, numChannels = 0;
+            bool interleaved = false;
+            AudioBufferList* buffer = nullptr;
 
             // use output pointers
             for (int busIdx = 0; busIdx < numOutputBuses; ++busIdx)

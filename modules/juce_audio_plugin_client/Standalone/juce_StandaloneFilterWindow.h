@@ -105,7 +105,7 @@ public:
     static String getFilePatterns (const String& fileSuffix)
     {
         if (fileSuffix.isEmpty())
-            return String();
+            return {};
 
         return (fileSuffix.startsWithChar ('.') ? "*" : "*.") + fileSuffix;
     }
@@ -182,6 +182,14 @@ public:
     void startPlaying()
     {
         player.setProcessor (processor);
+
+       #if JucePlugin_Enable_IAA && JUCE_IOS
+        if (auto device = dynamic_cast<iOSAudioIODevice*> (deviceManager.getCurrentAudioDevice()))
+        {
+            processor->setPlayHead                (device->getAudioPlayHead());
+            device->setMidiMessageCollector (&player.getMidiMessageCollector());
+        }
+       #endif
     }
 
     void stopPlaying()
@@ -203,7 +211,7 @@ public:
                                                               true, false));
         o.content->setSize (500, 450);
 
-        o.dialogTitle                   = TRANS("Audio Settings");
+        o.dialogTitle                   = TRANS("Audio/MIDI Settings");
         o.dialogBackgroundColour        = Colour (0xfff0f0f0);
         o.escapeKeyTriggersCloseButton  = true;
         o.useNativeTitleBar             = true;
@@ -259,6 +267,41 @@ public:
                 processor->setStateInformation (data.getData(), (int) data.getSize());
         }
     }
+
+    //==============================================================================
+    void switchToHostApplication()
+    {
+       #if JUCE_IOS
+        if (auto device = dynamic_cast<iOSAudioIODevice*> (deviceManager.getCurrentAudioDevice()))
+            device->switchApplication();
+       #endif
+    }
+
+    bool isInterAppAudioConnected()
+    {
+       #if JUCE_IOS
+        if (auto device = dynamic_cast<iOSAudioIODevice*> (deviceManager.getCurrentAudioDevice()))
+            return device->isInterAppAudioConnected();
+       #endif
+
+        return false;
+    }
+
+   #if JUCE_MODULE_AVAILABLE_juce_gui_basics
+    Image getIAAHostIcon (int size)
+    {
+       #if JUCE_IOS && JucePlugin_Enable_IAA
+        if (auto device = dynamic_cast<iOSAudioIODevice*> (deviceManager.getCurrentAudioDevice()))
+            return device->getIcon (size);
+       #else
+        ignoreUnused (size);
+       #endif
+
+        return Image();
+    }
+   #endif
+
+    static StandalonePluginHolder* getInstance();
 
     //==============================================================================
     OptionalScopedPointer<PropertySet> settings;
@@ -327,7 +370,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StandalonePluginHolder)
 };
-
 
 //==============================================================================
 /**
@@ -446,7 +488,7 @@ public:
     void buttonClicked (Button*) override
     {
         PopupMenu m;
-        m.addItem (1, TRANS("Audio Settings..."));
+        m.addItem (1, TRANS("Audio/MIDI Settings..."));
         m.addSeparator();
         m.addItem (2, TRANS("Save current state..."));
         m.addItem (3, TRANS("Load a saved state..."));
@@ -481,6 +523,8 @@ public:
         optionsButton.setBounds (8, 6, 60, getTitleBarHeight() - 8);
     }
 
+    virtual StandalonePluginHolder* getPluginHolder()    { return pluginHolder; }
+
     ScopedPointer<StandalonePluginHolder> pluginHolder;
 
 private:
@@ -489,3 +533,20 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StandaloneFilterWindow)
 };
+
+StandalonePluginHolder* StandalonePluginHolder::getInstance()
+{
+   #if JucePlugin_Enable_IAA || JucePlugin_Build_STANDALONE
+    if (PluginHostType::getPluginLoadedAs() == AudioProcessor::wrapperType_Standalone)
+    {
+        Desktop& desktop (Desktop::getInstance());
+        const int numTopLevelWindows = desktop.getNumComponents();
+
+        for (int i = 0; i < numTopLevelWindows; ++i)
+            if (auto window = dynamic_cast<StandaloneFilterWindow*> (desktop.getComponent (i)))
+                return window->getPluginHolder();
+    }
+   #endif
+
+    return nullptr;
+}
