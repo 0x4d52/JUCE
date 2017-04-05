@@ -55,6 +55,7 @@ import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import java.lang.Runnable;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.*;
 import java.util.*;
 import java.io.*;
@@ -146,38 +147,6 @@ public class JuceAppActivity   extends Activity
     $$JuceAndroidRuntimePermissionsCode$$ // If you get an error here, you need to re-save your project with the Projucer!
 
     //==============================================================================
-    public static class MidiPortID extends Object
-    {
-        public MidiPortID (int index, boolean direction)
-        {
-            androidIndex = index;
-            isInput = direction;
-        }
-
-        public int androidIndex;
-        public boolean isInput;
-
-        @Override
-        public int hashCode()
-        {
-            Integer i = new Integer (androidIndex);
-            return i.hashCode() * (isInput ? -1 : 1);
-        }
-
-        @Override
-        public boolean equals (Object obj)
-        {
-            if (obj == null)
-                return false;
-
-            if (getClass() != obj.getClass())
-                return false;
-
-            MidiPortID other = (MidiPortID) obj;
-            return (androidIndex == other.androidIndex && isInput == other.isInput);
-        }
-    }
-
     public interface JuceMidiPort
     {
         boolean isInputPort();
@@ -187,7 +156,6 @@ public class JuceAppActivity   extends Activity
         void stop();
 
         void close();
-        MidiPortID getPortId();
 
         // send will do nothing on an input port
         void sendMidi (byte[] msg, int offset, int count);
@@ -490,13 +458,14 @@ public class JuceAppActivity   extends Activity
         builder.create().show();
     }
 
-    public final void showOkCancelBox (String title, String message, final long callback)
+    public final void showOkCancelBox (String title, String message, final long callback,
+                                       String okButtonText, String cancelButtonText)
     {
         AlertDialog.Builder builder = new AlertDialog.Builder (this);
         builder.setTitle (title)
                .setMessage (message)
                .setCancelable (true)
-               .setPositiveButton ("OK", new DialogInterface.OnClickListener()
+               .setPositiveButton (okButtonText.isEmpty() ? "OK" : okButtonText, new DialogInterface.OnClickListener()
                     {
                         public void onClick (DialogInterface dialog, int id)
                         {
@@ -504,7 +473,7 @@ public class JuceAppActivity   extends Activity
                             JuceAppActivity.this.alertDismissed (callback, 1);
                         }
                     })
-               .setNegativeButton ("Cancel", new DialogInterface.OnClickListener()
+               .setNegativeButton (cancelButtonText.isEmpty() ? "Cancel" : cancelButtonText, new DialogInterface.OnClickListener()
                     {
                         public void onClick (DialogInterface dialog, int id)
                         {
@@ -862,10 +831,12 @@ public class JuceAppActivity   extends Activity
     }
 
     //==============================================================================
-    public final int[] renderGlyph (char glyph, Paint paint, android.graphics.Matrix matrix, Rect bounds)
+    public final int[] renderGlyph (char glyph1, char glyph2, Paint paint, android.graphics.Matrix matrix, Rect bounds)
     {
         Path p = new Path();
-        paint.getTextPath (String.valueOf (glyph), 0, 1, 0.0f, 0.0f, p);
+
+        char[] str = { glyph1, glyph2 };
+        paint.getTextPath (str, 0, (glyph2 != 0 ? 2 : 1), 0.0f, 0.0f, p);
 
         RectF boundsF = new RectF();
         p.computeBounds (boundsF, true);
@@ -1078,8 +1049,8 @@ public class JuceAppActivity   extends Activity
     {
         java.util.Locale locale = java.util.Locale.getDefault();
 
-        return isRegion ? locale.getDisplayCountry  (java.util.Locale.US)
-                        : locale.getDisplayLanguage (java.util.Locale.US);
+        return isRegion ? locale.getCountry()
+                        : locale.getLanguage();
     }
 
     private static final String getFileLocation (String type)

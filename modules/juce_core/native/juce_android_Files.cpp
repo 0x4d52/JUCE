@@ -45,7 +45,7 @@ bool File::isOnRemovableDrive() const
 
 String File::getVersion() const
 {
-    return String();
+    return {};
 }
 
 static File getSpecialFile (jmethodID type)
@@ -86,7 +86,7 @@ File File::getSpecialLocation (const SpecialLocationType type)
             break;
     }
 
-    return File();
+    return {};
 }
 
 bool File::moveToTrash() const

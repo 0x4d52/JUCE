@@ -114,7 +114,7 @@ static String removeEllipsis (const String& path)
 String File::parseAbsolutePath (const String& p)
 {
     if (p.isEmpty())
-        return String();
+        return {};
 
 #if JUCE_WINDOWS
     // Windows..
@@ -548,7 +548,7 @@ bool File::loadFileAsData (MemoryBlock& destBlock) const
 String File::loadFileAsString() const
 {
     if (! existsAsFile())
-        return String();
+        return {};
 
     FileInputStream in (*this);
     return in.openedOk() ? in.readEntireStreamAsString()
@@ -667,7 +667,7 @@ String File::getFileExtension() const
     if (indexOfDot > fullPath.lastIndexOfChar (separator))
         return fullPath.substring (indexOfDot);
 
-    return String();
+    return {};
 }
 
 bool File::hasFileExtension (StringRef possibleSuffix) const
@@ -698,7 +698,7 @@ bool File::hasFileExtension (StringRef possibleSuffix) const
 File File::withFileExtension (StringRef newExtension) const
 {
     if (fullPath.isEmpty())
-        return File();
+        return {};
 
     String filePart (getFileName());
 
@@ -865,7 +865,7 @@ static int countNumberOfSeparators (String::CharPointerType s)
 
     for (;;)
     {
-        const juce_wchar c = s.getAndAdvance();
+        auto c = s.getAndAdvance();
 
         if (c == 0)
             break;
@@ -877,28 +877,31 @@ static int countNumberOfSeparators (String::CharPointerType s)
     return num;
 }
 
-String File::getRelativePathFrom (const File& dir)  const
+String File::getRelativePathFrom (const File& dir) const
 {
-    String thisPath (fullPath);
+    if (dir == *this)
+        return ".";
+
+    auto thisPath = fullPath;
 
     while (thisPath.endsWithChar (separator))
         thisPath = thisPath.dropLastCharacters (1);
 
-    String dirPath (addTrailingSeparator (dir.existsAsFile() ? dir.getParentDirectory().getFullPathName()
-                                                             : dir.fullPath));
+    auto dirPath = addTrailingSeparator (dir.existsAsFile() ? dir.getParentDirectory().getFullPathName()
+                                                            : dir.fullPath);
 
     int commonBitLength = 0;
-    String::CharPointerType thisPathAfterCommon (thisPath.getCharPointer());
-    String::CharPointerType dirPathAfterCommon  (dirPath.getCharPointer());
+    auto thisPathAfterCommon = thisPath.getCharPointer();
+    auto dirPathAfterCommon  = dirPath.getCharPointer();
 
     {
-        String::CharPointerType thisPathIter (thisPath.getCharPointer());
-        String::CharPointerType dirPathIter  (dirPath.getCharPointer());
+        auto thisPathIter = thisPath.getCharPointer();
+        auto dirPathIter = dirPath.getCharPointer();
 
         for (int i = 0;;)
         {
-            const juce_wchar c1 = thisPathIter.getAndAdvance();
-            const juce_wchar c2 = dirPathIter.getAndAdvance();
+            auto c1 = thisPathIter.getAndAdvance();
+            auto c2 = dirPathIter.getAndAdvance();
 
            #if NAMES_ARE_CASE_SENSITIVE
             if (c1 != c2
@@ -923,7 +926,7 @@ String File::getRelativePathFrom (const File& dir)  const
     if (commonBitLength == 0 || (commonBitLength == 1 && thisPath[1] == separator))
         return fullPath;
 
-    const int numUpDirectoriesNeeded = countNumberOfSeparators (dirPathAfterCommon);
+    auto numUpDirectoriesNeeded = countNumberOfSeparators (dirPathAfterCommon);
 
     if (numUpDirectoriesNeeded == 0)
         return thisPathAfterCommon;
@@ -940,9 +943,9 @@ String File::getRelativePathFrom (const File& dir)  const
 //==============================================================================
 File File::createTempFile (StringRef fileNameEnding)
 {
-    const File tempFile (getSpecialLocation (tempDirectory)
-                            .getChildFile ("temp_" + String::toHexString (Random::getSystemRandom().nextInt()))
-                            .withFileExtension (fileNameEnding));
+    auto tempFile = getSpecialLocation (tempDirectory)
+                      .getChildFile ("temp_" + String::toHexString (Random::getSystemRandom().nextInt()))
+                      .withFileExtension (fileNameEnding);
 
     if (tempFile.exists())
         return createTempFile (fileNameEnding);
