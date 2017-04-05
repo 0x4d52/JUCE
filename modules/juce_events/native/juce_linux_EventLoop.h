@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2016 - ROLI Ltd.
+   Copyright (c) 2017 - ROLI Ltd.
 
    Permission is granted to use this software under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license/
@@ -30,40 +30,31 @@
 
 #pragma once
 
-
-//==============================================================================
-/**
-    Classes derived from this will be automatically deleted when the application exits.
-
-    After JUCEApplicationBase::shutdown() has been called, any objects derived from
-    DeletedAtShutdown which are still in existence will be deleted in the reverse
-    order to that in which they were created.
-
-    So if you've got a singleton and don't want to have to explicitly delete it, just
-    inherit from this and it'll be taken care of.
-*/
-class JUCE_API  DeletedAtShutdown
+namespace LinuxEventLoop
 {
-protected:
-    /** Creates a DeletedAtShutdown object. */
-    DeletedAtShutdown();
+    struct CallbackFunctionBase
+    {
+        virtual ~CallbackFunctionBase() {}
+        virtual bool operator()(int fd) = 0;
+        bool active = true;
+    };
 
-    /** Destructor.
+    template <typename FdCallbackFunction>
+    struct CallbackFunction : public CallbackFunctionBase
+    {
+        FdCallbackFunction callback;
 
-        It's ok to delete these objects explicitly - it's only the ones left
-        dangling at the end that will be deleted automatically.
-    */
-    virtual ~DeletedAtShutdown();
+        CallbackFunction (FdCallbackFunction c) : callback (c) {}
 
+        bool operator() (int fd) override { return callback (fd); }
+    };
 
-public:
-    /** Deletes all extant objects.
+    template <typename FdCallbackFunction>
+    void setWindowSystemFd (int fd, FdCallbackFunction readCallback)
+    {
+        setWindowSystemFdInternal (fd, new CallbackFunction<FdCallbackFunction> (readCallback));
+    }
+    void removeWindowSystemFd() noexcept;
 
-        This shouldn't be used by applications, as it's called automatically
-        in the shutdown code of the JUCEApplicationBase class.
-    */
-    static void deleteAll();
-
-private:
-    JUCE_DECLARE_NON_COPYABLE (DeletedAtShutdown)
-};
+    void setWindowSystemFdInternal (int fd, CallbackFunctionBase* readCallback) noexcept;
+}

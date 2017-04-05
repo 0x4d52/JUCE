@@ -35,6 +35,10 @@ class ThreadPoolJob;
 class ActionListener;
 class ActionBroadcaster;
 
+//==============================================================================
+#if JUCE_MODULE_AVAILABLE_juce_opengl
+class OpenGLContext;
+#endif
 
 //==============================================================================
 /** See MessageManager::callFunctionOnMessageThread() for use of this function type. */
@@ -95,12 +99,12 @@ public:
    #endif
 
     //==============================================================================
-   #if JUCE_COMPILER_SUPPORTS_LAMBDAS
-    /** Asynchronously invokes a function or C++11 lambda on the message thread.
-        Internally this uses the CallbackMessage class to invoke the callback.
-    */
-    static void callAsync (std::function<void(void)>);
-   #endif
+    /** Asynchronously invokes a function or C++11 lambda on the message thread. */
+    template <typename FunctionType>
+    static void callAsync (FunctionType functionToCall)
+    {
+        new AsyncCallInvoker<FunctionType> (functionToCall);
+    }
 
     /** Calls a function using the message-thread.
 
@@ -207,9 +211,9 @@ private:
     friend class MessageManagerLock;
 
     ScopedPointer<ActionBroadcaster> broadcaster;
-    bool quitMessagePosted, quitMessageReceived;
+    bool quitMessagePosted = false, quitMessageReceived = false;
     Thread::ThreadID messageThreadId;
-    Thread::ThreadID volatile threadWithLock;
+    Thread::ThreadID volatile threadWithLock = {};
     CriticalSection lockingLock;
 
     static bool postMessageToSystemQueue (MessageBase*);
@@ -217,6 +221,16 @@ private:
     static void doPlatformSpecificInitialisation();
     static void doPlatformSpecificShutdown();
     static bool dispatchNextMessageOnSystemQueue (bool returnIfNoPendingMessages);
+
+    template <typename FunctionType>
+    struct AsyncCallInvoker  : public MessageBase
+    {
+        AsyncCallInvoker (FunctionType f) : callback (f)  { post(); }
+        void messageCallback() override                   { callback(); }
+        FunctionType callback;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AsyncCallInvoker)
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MessageManager)
 };
@@ -312,6 +326,22 @@ public:
     */
     MessageManagerLock (ThreadPoolJob* jobToCheckForExitSignal);
 
+    //==============================================================================
+    struct BailOutChecker
+    {
+        virtual ~BailOutChecker() {}
+
+        /** Return true if acquiring the lock should be aborted. */
+        virtual bool shouldAbortAcquiringLock() = 0;
+    };
+
+    /** This is an abstraction of the other constructors. You can pass this constructor
+        a functor which is periodically checked if attempting the lock should be aborted.
+
+        See the MessageManagerLock (Thread*) constructor for details on how this works.
+     */
+     MessageManagerLock (BailOutChecker&);
+
 
     //==============================================================================
     /** Releases the current thread's lock on the message manager.
@@ -331,9 +361,22 @@ private:
     class BlockingMessage;
     friend class ReferenceCountedObjectPtr<BlockingMessage>;
     ReferenceCountedObjectPtr<BlockingMessage> blockingMessage;
+
+    struct ThreadChecker : BailOutChecker
+    {
+        ThreadChecker (Thread* const, ThreadPoolJob* const);
+        bool shouldAbortAcquiringLock() override;
+
+        Thread* const threadToCheck;
+        ThreadPoolJob* const job;
+    };
+
+    //==============================================================================
+    ThreadChecker checker;
     bool locked;
 
-    bool attemptLock (Thread*, ThreadPoolJob*);
+    //==============================================================================
+    bool attemptLock (BailOutChecker*);
 
     JUCE_DECLARE_NON_COPYABLE (MessageManagerLock)
 };

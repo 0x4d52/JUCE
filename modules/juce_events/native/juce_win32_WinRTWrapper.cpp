@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2016 - ROLI Ltd.
+   Copyright (c) 2017 - ROLI Ltd.
 
    Permission is granted to use this software under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license/
@@ -28,27 +28,4 @@
   ==============================================================================
 */
 
-#pragma once
-
-
-//==============================================================================
-#if JUCE_LINUX || DOXYGEN
-
-/** A handy class that uses XLockDisplay and XUnlockDisplay to lock the X server
-    using RAII (Only available in Linux!).
-*/
-class ScopedXLock
-{
-public:
-    /** Creating a ScopedXLock object locks the X display.
-        This uses XLockDisplay() to grab the display that Juce is using.
-    */
-    ScopedXLock();
-
-    /** Deleting a ScopedXLock object unlocks the X display.
-        This calls XUnlockDisplay() to release the lock.
-    */
-    ~ScopedXLock();
-};
-
-#endif
+juce_ImplementSingleton (WinRTWrapper)
