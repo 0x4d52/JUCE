@@ -163,10 +163,11 @@ public:
             }
         }
 
-        String getLibrarySubdirPath () const override
+        String getLibrarySubdirPath() const override
         {
-            auto result = String ("$(Platform)\\");
+            String result ("$(Platform)\\");
             result += isUsingRuntimeLibDLL() ? "MD" : "MT";
+
             if (isDebug())
                 result += "d";
 
@@ -204,7 +205,7 @@ public:
         {
             const String binaryPath (config.getTargetBinaryRelativePathString().trim());
             if (binaryPath.isEmpty())
-                return "$(SolutionDir)$(Configuration)";
+                return "$(SolutionDir)\\$(Platform)\\$(Configuration)";
 
             RelativePath binaryRelPath (binaryPath, RelativePath::projectFolder);
 
@@ -223,7 +224,7 @@ public:
 
         String getIntermediatesPath (const MSVCBuildConfiguration& config) const
         {
-            String intDir = (config.getIntermediatesPath().isNotEmpty() ? config.getIntermediatesPath() : "$(Configuration)");
+            String intDir = (config.getIntermediatesPath().isNotEmpty() ? config.getIntermediatesPath() : "$(Platform)\\$(Configuration)");
             if (! intDir.endsWithChar (L'\\'))
                 intDir += L'\\';
 
@@ -246,31 +247,26 @@ public:
 
             switch (fileType)
             {
-            case executable:
-                return ".exe";
-            case staticLibrary:
-                return ".lib";
-            case sharedLibraryOrDLL:
-                return ".dll";
-            case pluginBundle:
-                switch (type)
-                {
-                case VST3PlugIn:
-                    return ".vst3";
-                case AAXPlugIn:
-                    return ".aaxdll";
-                case RTASPlugIn:
-                    return ".dpm";
+                case executable:            return ".exe";
+                case staticLibrary:         return ".lib";
+                case sharedLibraryOrDLL:    return ".dll";
+
+                case pluginBundle:
+                    switch (type)
+                    {
+                        case VST3PlugIn:    return ".vst3";
+                        case AAXPlugIn:     return ".aaxdll";
+                        case RTASPlugIn:    return ".dpm";
+                        default:            break;
+                    }
+
+                    return ".dll";
+
                 default:
                     break;
-                }
-
-                return ".dll";
-            default:
-                break;
             }
 
-            return String();
+            return {};
         }
 
         XmlElement* createToolElement (XmlElement& parent, const String& toolName) const
@@ -350,7 +346,7 @@ public:
                     createRebasedPath (bundleScript) + String (" \"") + macOSDir + String ("\" ") + createRebasedPath (iconFilePath);
             }
 
-            return String();
+            return {};
         }
 
         String getExtraPreBuildSteps (const MSVCBuildConfiguration& config) const
@@ -372,7 +368,7 @@ public:
                 return script;
             }
 
-            return String();
+            return {};
         }
 
         String getPostBuildSteps (const MSVCBuildConfiguration& config) const
@@ -418,13 +414,15 @@ public:
 
         String getExtraLinkerFlags() const
         {
-            if (type == RTASPlugIn) return "/FORCE:multiple";
+            if (type == RTASPlugIn)
+                return "/FORCE:multiple";
 
-            return String();
+            return {};
         }
 
-        void addExtraSearchPaths (Array<RelativePath>& searchPaths) const
+        StringArray getExtraSearchPaths() const
         {
+            StringArray searchPaths;
             if (type == RTASPlugIn)
             {
                 const RelativePath rtasFolder (getOwner().getRTASPathValue().toString(), RelativePath::projectFolder);
@@ -456,8 +454,10 @@ public:
                                            "xplat/AVX/avx2/avx2sdk/inc" };
 
                 for (int i = 0; i < numElementsInArray (p); ++i)
-                    searchPaths.add (rtasFolder.getChildFile (p[i]));
+                    searchPaths.add (createRebasedPath (rtasFolder.getChildFile (p[i])));
             }
+
+            return searchPaths;
         }
 
         String getBinaryNameWithSuffix (const MSVCBuildConfiguration& config) const
@@ -508,6 +508,29 @@ public:
                     "DSPManager.dll; DSPManager.dll; DSPManagerClientLib.dll; RTASClientLib.dll";
 
             return delayLoadedDLLs;
+        }
+
+        String getModuleDefinitions (const MSVCBuildConfiguration& config) const
+        {
+            const String& moduleDefinitions = config.config [Ids::msvcModuleDefinitionFile].toString();
+
+            if (moduleDefinitions.isNotEmpty())
+                return moduleDefinitions;
+
+            if (type == RTASPlugIn)
+            {
+                const ProjectExporter& exp = getOwner();
+
+                RelativePath moduleDefPath
+                    = RelativePath (exp.getPathForModuleString ("juce_audio_plugin_client"), RelativePath::projectFolder)
+                         .getChildFile ("juce_audio_plugin_client").getChildFile ("RTAS").getChildFile ("juce_RTAS_WinExports.def");
+
+                return prependDot (moduleDefPath.rebased (exp.getProject().getProjectFolder(),
+                                                            exp.getTargetFolder(),
+                                                            RelativePath::buildTargetFolder).toWindowsStyle());
+            }
+
+            return {};
         }
 
         bool shouldUseRuntimeDLL (const MSVCBuildConfiguration& config) const
@@ -651,7 +674,7 @@ protected:
         String filename = project.getProjectFilenameRoot();
 
         if (target.isNotEmpty())
-            filename += String (" (") + target + String (")");
+            filename += String ("_") + target.removeCharacters (" ");
 
         return getTargetFolder().getChildFile (filename).withFileExtension (extension);
     }
@@ -722,7 +745,7 @@ protected:
                 if (target->type == ProjectType::Target::SharedCodeTarget)
                     return target->getProjectGuid();
 
-        return String();
+        return {};
     }
 
     //==============================================================================
@@ -738,8 +761,8 @@ protected:
         {
             if (MSVCTargetBase* target = targets[i])
             {
-                out << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << projectName << " ("
-                    << target->getName() << ")\", \""
+                out << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << projectName << " - "
+                    << target->getName() << "\", \""
                     << target->getVCProjFile().getFileName() << "\", \"" << target->getProjectGuid() << '"' << newLine;
 
                 if (sharedCodeGuid.isNotEmpty() && target->type != ProjectType::Target::SharedCodeTarget)
@@ -783,7 +806,8 @@ protected:
             {
                 const MSVCBuildConfiguration& config = dynamic_cast<const MSVCBuildConfiguration&> (*i);
                 const String configName = config.createMSVCConfigName();
-                out << "\t\t" << target->getProjectGuid() << "." << configName << ".Build.0 = " << configName << newLine;
+                for (auto& suffix : { ".Build.0", ".ActiveCfg" })
+                    out << "\t\t" << target->getProjectGuid() << "." << configName << suffix << " = " << configName << newLine;
             }
 
         out << "\tEndGlobalSection" << newLine
@@ -1040,9 +1064,10 @@ protected:
         return path.getFileNameWithoutExtension().startsWithIgnoreCase ("juce_audio_plugin_client_RTAS_");
     }
 
-    StringArray getModuleLibs () const
+    StringArray getModuleLibs() const
     {
         StringArray result;
+
         for (auto& lib : windowsLibs)
             result.add (lib + ".lib");
 
@@ -1174,11 +1199,11 @@ public:
 
                     {
                         XmlElement* intdir = props->createNewChildElement("IntDir");
-                        setConditionAttribute(*intdir, config);
+                        setConditionAttribute (*intdir, config);
 
                         String intermediatesPath = getIntermediatesPath (config);
-                        if (!intermediatesPath.endsWith("\\"))
-                            intermediatesPath << "\\";
+                        if (! intermediatesPath.endsWithChar (L'\\'))
+                            intermediatesPath += L'\\';
 
                         intdir->addTextElement (FileHelpers::windowsStylePath (intermediatesPath));
                     }
@@ -1242,7 +1267,9 @@ public:
                     }
 
                     StringArray includePaths (getOwner().getHeaderSearchPaths (config));
+                    includePaths.addArray (getExtraSearchPaths());
                     includePaths.add ("%(AdditionalIncludeDirectories)");
+
                     cl->createNewChildElement ("AdditionalIncludeDirectories")->addTextElement (includePaths.joinIntoString (";"));
                     cl->createNewChildElement ("PreprocessorDefinitions")->addTextElement (getPreprocessorDefs (config, ";") + ";%(PreprocessorDefinitions)");
 
@@ -1267,12 +1294,16 @@ public:
 
                     if (config.areWarningsTreatedAsErrors())
                         cl->createNewChildElement ("TreatWarningAsError")->addTextElement ("true");
+
+                    String cppLanguageStandard = getOwner().getCppLanguageStandard();
+                    if (cppLanguageStandard.isNotEmpty())
+                        cl->createNewChildElement ("LanguageStandard")->addTextElement (cppLanguageStandard);
                 }
 
                 {
                     XmlElement* res = group->createNewChildElement ("ResourceCompile");
                     res->createNewChildElement ("PreprocessorDefinitions")->addTextElement (isDebug ? "_DEBUG;%(PreprocessorDefinitions)"
-                                                                                            : "NDEBUG;%(PreprocessorDefinitions)");
+                                                                                                    : "NDEBUG;%(PreprocessorDefinitions)");
                 }
 
                 {
@@ -1280,7 +1311,7 @@ public:
                     link->createNewChildElement ("OutputFile")->addTextElement (getOutputFilePath (config));
                     link->createNewChildElement ("SuppressStartupBanner")->addTextElement ("true");
                     link->createNewChildElement ("IgnoreSpecificDefaultLibraries")->addTextElement (isDebug ? "libcmt.lib; msvcrt.lib;;%(IgnoreSpecificDefaultLibraries)"
-                                                                                                    : "%(IgnoreSpecificDefaultLibraries)");
+                                                                                                            : "%(IgnoreSpecificDefaultLibraries)");
                     link->createNewChildElement ("GenerateDebugInformation")->addTextElement ((isDebug || config.shouldGenerateDebugSymbols()) ? "true" : "false");
                     link->createNewChildElement ("ProgramDatabaseFile")->addTextElement (getOwner().getIntDirFile (config, config.getOutputFilename (".pdb", true)));
                     link->createNewChildElement ("SubSystem")->addTextElement (type == ConsoleApp ? "Console" : "Windows");
@@ -1318,9 +1349,10 @@ public:
                     if (delayLoadedDLLs.isNotEmpty())
                         link->createNewChildElement ("DelayLoadDLLs")->addTextElement (delayLoadedDLLs);
 
-                    if (config.config [Ids::msvcModuleDefinitionFile].toString().isNotEmpty())
+                    const String moduleDefinitionsFile (getModuleDefinitions (config));
+                    if (moduleDefinitionsFile.isNotEmpty())
                         link->createNewChildElement ("ModuleDefinitionFile")
-                            ->addTextElement (config.config [Ids::msvcModuleDefinitionFile].toString());
+                            ->addTextElement (moduleDefinitionsFile);
                 }
 
                 {
@@ -1444,15 +1476,16 @@ public:
 
     };
 
-    static const char* getName()                { return "Visual Studio 2010"; }
-    static const char* getValueTreeTypeName()   { return "VS2010"; }
-    int getVisualStudioVersion() const override { return 10; }
-    virtual String getSolutionComment() const   { return "# Visual Studio 2010"; }
-    virtual String getToolsVersion() const      { return "4.0"; }
-    virtual String getDefaultToolset() const    { return "Windows7.1SDK"; }
-    Value getPlatformToolsetValue()             { return getSetting (Ids::toolset); }
-    Value getIPPLibraryValue()                  { return getSetting (Ids::IPPLibrary); }
-    String getIPPLibrary() const                { return settings [Ids::IPPLibrary]; }
+    static const char* getName()                  { return "Visual Studio 2010"; }
+    static const char* getValueTreeTypeName()     { return "VS2010"; }
+    int getVisualStudioVersion() const override   { return 10; }
+    virtual String getSolutionComment() const     { return "# Visual Studio 2010"; }
+    virtual String getToolsVersion() const        { return "4.0"; }
+    virtual String getDefaultToolset() const      { return "Windows7.1SDK"; }
+    Value getPlatformToolsetValue()               { return getSetting (Ids::toolset); }
+    Value getIPPLibraryValue()                    { return getSetting (Ids::IPPLibrary); }
+    String getIPPLibrary() const                  { return settings [Ids::IPPLibrary]; }
+    virtual String getCppLanguageStandard() const { return {}; }
 
     String getPlatformToolset() const
     {
@@ -1783,4 +1816,58 @@ public:
     }
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2015)
+};
+
+//==============================================================================
+class MSVCProjectExporterVC2017  : public MSVCProjectExporterVC2012
+{
+public:
+    MSVCProjectExporterVC2017 (Project& p, const ValueTree& t)
+        : MSVCProjectExporterVC2012 (p, t, "VisualStudio2017")
+    {
+        name = getName();
+    }
+
+    static const char* getName()                { return "Visual Studio 2017"; }
+    static const char* getValueTreeTypeName()   { return "VS2017"; }
+    int getVisualStudioVersion() const override { return 15; }
+    String getSolutionComment() const override  { return "# Visual Studio 2017"; }
+    String getToolsVersion() const override     { return "15.0"; }
+    String getDefaultToolset() const override   { return "v141"; }
+
+    static MSVCProjectExporterVC2017* createForSettings (Project& project, const ValueTree& settings)
+    {
+        if (settings.hasType (getValueTreeTypeName()))
+            return new MSVCProjectExporterVC2017 (project, settings);
+
+        return nullptr;
+    }
+
+    Value getCppStandardValue()                         { return getSetting (Ids::cppLanguageStandard); }
+    String getCppLanguageStandard() const override      { return settings [Ids::cppLanguageStandard];  }
+
+    void createExporterProperties (PropertyListBuilder& props) override
+    {
+        MSVCProjectExporterBase::createExporterProperties (props);
+
+        static const char* toolsetNames[] = { "(default)", "v140", "v140_xp", "v141", "v141_xp" };
+        const var toolsets[]              = { var(),       "v140", "v140_xp", "v141", "v141_xp" };
+
+        addToolsetProperty (props, toolsetNames, toolsets, numElementsInArray (toolsets));
+        addIPPLibraryProperty (props);
+
+        static const char* cppStandardNames[]  = { "(default)", "C++14",    "Latest C++ Standard" };
+
+        Array<var> cppStandardValues;
+        cppStandardValues.add (var());
+        cppStandardValues.add ("stdcpp14");
+        cppStandardValues.add ("stdcpplatest");
+
+        props.add (new ChoicePropertyComponent (getCppStandardValue(), "C++ standard to use",
+                                                StringArray (cppStandardNames), cppStandardValues),
+                                                "The C++ language standard to use");
+
+    }
+
+    JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2017)
 };

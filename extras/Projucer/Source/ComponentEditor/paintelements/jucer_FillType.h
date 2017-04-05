@@ -22,8 +22,7 @@
   ==============================================================================
 */
 
-#ifndef JUCER_FILLTYPE_H_INCLUDED
-#define JUCER_FILLTYPE_H_INCLUDED
+#pragma once
 
 #include "../jucer_JucerDocument.h"
 #include "../jucer_UtilityFunctions.h"
@@ -202,7 +201,7 @@ public:
             break;
         }
 
-        return String();
+        return {};
     }
 
     void restoreFromString (const String& s)
@@ -389,6 +388,3 @@ private:
         }
     }
 };
-
-
-#endif   // JUCER_FILLTYPE_H_INCLUDED

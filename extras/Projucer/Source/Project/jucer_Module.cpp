@@ -81,7 +81,7 @@ static var parseModuleDesc (const File& header)
         }
     }
 
-    return var();
+    return {};
 }
 
 ModuleDescription::ModuleDescription (const File& folder)
@@ -92,22 +92,25 @@ ModuleDescription::ModuleDescription (const File& folder)
 
 File ModuleDescription::getHeader() const
 {
-    const char* extensions[] = { ".h", ".hpp", ".hxx" };
-
-    for (int i = 0; i < numElementsInArray (extensions); ++i)
+    if (moduleFolder != File())
     {
-        File header (moduleFolder.getChildFile (moduleFolder.getFileName() + extensions[i]));
+        const char* extensions[] = { ".h", ".hpp", ".hxx" };
 
-        if (header.existsAsFile())
-            return header;
+        for (auto e : extensions)
+        {
+            File header (moduleFolder.getChildFile (moduleFolder.getFileName() + e));
+
+            if (header.existsAsFile())
+                return header;
+        }
     }
 
-    return File();
+    return {};
 }
 
 StringArray ModuleDescription::getDependencies() const
 {
-    StringArray deps = StringArray::fromTokens (moduleInfo ["dependencies"].toString(), " \t;,", "\"'");
+    auto deps = StringArray::fromTokens (moduleInfo ["dependencies"].toString(), " \t;,", "\"'");
     deps.trim();
     deps.removeEmptyStrings();
     return deps;
@@ -132,13 +135,9 @@ ModuleList& ModuleList::operator= (const ModuleList& other)
 
 const ModuleDescription* ModuleList::getModuleWithID (const String& moduleID) const
 {
-    for (int i = 0; i < modules.size(); ++i)
-    {
-        ModuleDescription* m = modules.getUnchecked(i);
-
+    for (auto* m : modules)
         if (m->getID() == moduleID)
             return m;
-    }
 
     return nullptr;
 }
@@ -161,8 +160,8 @@ StringArray ModuleList::getIDs() const
 {
     StringArray results;
 
-    for (int i = 0; i < modules.size(); ++i)
-        results.add (modules.getUnchecked(i)->getID());
+    for (auto* m : modules)
+        results.add (m->getID());
 
     results.sort (true);
     return results;
@@ -171,6 +170,7 @@ StringArray ModuleList::getIDs() const
 Result ModuleList::tryToAddModuleFromFolder (const File& path)
 {
     ModuleDescription m (path);
+
     if (m.isValid())
     {
         modules.add (new ModuleDescription (m));
@@ -635,7 +635,7 @@ File EnabledModuleList::findLocalModuleFolder (const String& moduleID, bool useE
         }
     }
 
-    return File();
+    return {};
 }
 
 File EnabledModuleList::getModuleFolder (const String& moduleID)

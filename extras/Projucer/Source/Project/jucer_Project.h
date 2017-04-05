@@ -22,8 +22,7 @@
   ==============================================================================
 */
 
-#ifndef JUCER_PROJECT_H_INCLUDED
-#define JUCER_PROJECT_H_INCLUDED
+#pragma once
 
 #include "jucer_ProjectType.h"
 
@@ -131,6 +130,7 @@ public:
     Value getShouldBuildRTASAsValue()                     { return getProjectValue ("buildRTAS"); }
     Value getShouldBuildAAXAsValue()                      { return getProjectValue ("buildAAX"); }
     Value getShouldBuildStandalonePluginAsValue()         { return getProjectValue ("buildStandalone");}
+    Value getShouldEnableIAAAsValue()                     { return getProjectValue ("enableIAA"); }
 
     bool shouldBuildVST()         const                   { return getProjectVar ("buildVST"); }
     bool shouldBuildVST3()        const                   { return getProjectVar ("buildVST3"); }
@@ -139,6 +139,7 @@ public:
     bool shouldBuildRTAS()        const                   { return getProjectVar ("buildRTAS"); }
     bool shouldBuildAAX()         const                   { return getProjectVar ("buildAAX"); }
     bool shouldBuildStandalonePlugin()  const             { return getProjectVar ("buildStandalone"); }
+    bool shouldEnableIAA()        const                   { return getProjectVar ("enableIAA"); }
 
     //==============================================================================
     Value getPluginName()                       { return getProjectValue ("pluginName"); }
@@ -164,6 +165,8 @@ public:
     String getPluginRTASCategoryCode();
     String getAUMainTypeString();
     String getAUMainTypeCode();
+    String getIAATypeCode();
+    String getIAAPluginName();
     String getPluginVSTCategoryString();
 
     bool isAUPluginHost();
@@ -359,6 +362,3 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Project)
 };
-
-
-#endif   // JUCER_PROJECT_H_INCLUDED

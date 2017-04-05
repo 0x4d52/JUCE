@@ -1,7 +1,7 @@
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2015
 
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OSCSender (App)", "OSCSender (App).vcxproj", "{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OSCSender - App", "OSCSender_App.vcxproj", "{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OSCSender", "OSCSender", "{D0B95125-8581-3E3A-A11B-7E86A9996948}"
 EndProject
@@ -405,12 +405,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "native", "native", "{01E01F
 	ProjectSection(SolutionItems) = preProject
 		..\..\..\..\modules\juce_events\native\juce_android_Messaging.cpp = ..\..\..\..\modules\juce_events\native\juce_android_Messaging.cpp
 		..\..\..\..\modules\juce_events\native\juce_ios_MessageManager.mm = ..\..\..\..\modules\juce_events\native\juce_ios_MessageManager.mm
+		..\..\..\..\modules\juce_events\native\juce_linux_EventLoop.h = ..\..\..\..\modules\juce_events\native\juce_linux_EventLoop.h
 		..\..\..\..\modules\juce_events\native\juce_linux_Messaging.cpp = ..\..\..\..\modules\juce_events\native\juce_linux_Messaging.cpp
 		..\..\..\..\modules\juce_events\native\juce_mac_MessageManager.mm = ..\..\..\..\modules\juce_events\native\juce_mac_MessageManager.mm
 		..\..\..\..\modules\juce_events\native\juce_osx_MessageQueue.h = ..\..\..\..\modules\juce_events\native\juce_osx_MessageQueue.h
-		..\..\..\..\modules\juce_events\native\juce_ScopedXLock.h = ..\..\..\..\modules\juce_events\native\juce_ScopedXLock.h
 		..\..\..\..\modules\juce_events\native\juce_win32_HiddenMessageWindow.h = ..\..\..\..\modules\juce_events\native\juce_win32_HiddenMessageWindow.h
 		..\..\..\..\modules\juce_events\native\juce_win32_Messaging.cpp = ..\..\..\..\modules\juce_events\native\juce_win32_Messaging.cpp
+		..\..\..\..\modules\juce_events\native\juce_win32_WinRTWrapper.cpp = ..\..\..\..\modules\juce_events\native\juce_win32_WinRTWrapper.cpp
+		..\..\..\..\modules\juce_events\native\juce_win32_WinRTWrapper.h = ..\..\..\..\modules\juce_events\native\juce_win32_WinRTWrapper.h
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "timers", "timers", "{DB7B412F-7680-ACAF-3D61-D629541DA87B}"
@@ -609,17 +611,21 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "native", "native", "{A3A058
 	ProjectSection(SolutionItems) = preProject
 		..\..\..\..\modules\juce_graphics\native\juce_android_Fonts.cpp = ..\..\..\..\modules\juce_graphics\native\juce_android_Fonts.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_android_GraphicsContext.cpp = ..\..\..\..\modules\juce_graphics\native\juce_android_GraphicsContext.cpp
+		..\..\..\..\modules\juce_graphics\native\juce_android_IconHelpers.cpp = ..\..\..\..\modules\juce_graphics\native\juce_android_IconHelpers.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_freetype_Fonts.cpp = ..\..\..\..\modules\juce_graphics\native\juce_freetype_Fonts.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_linux_Fonts.cpp = ..\..\..\..\modules\juce_graphics\native\juce_linux_Fonts.cpp
+		..\..\..\..\modules\juce_graphics\native\juce_linux_IconHelpers.cpp = ..\..\..\..\modules\juce_graphics\native\juce_linux_IconHelpers.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsContext.h = ..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsContext.h
 		..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsContext.mm = ..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsContext.mm
 		..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsHelpers.h = ..\..\..\..\modules\juce_graphics\native\juce_mac_CoreGraphicsHelpers.h
 		..\..\..\..\modules\juce_graphics\native\juce_mac_Fonts.mm = ..\..\..\..\modules\juce_graphics\native\juce_mac_Fonts.mm
+		..\..\..\..\modules\juce_graphics\native\juce_mac_IconHelpers.cpp = ..\..\..\..\modules\juce_graphics\native\juce_mac_IconHelpers.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_RenderingHelpers.h = ..\..\..\..\modules\juce_graphics\native\juce_RenderingHelpers.h
 		..\..\..\..\modules\juce_graphics\native\juce_win32_Direct2DGraphicsContext.cpp = ..\..\..\..\modules\juce_graphics\native\juce_win32_Direct2DGraphicsContext.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_win32_DirectWriteTypeface.cpp = ..\..\..\..\modules\juce_graphics\native\juce_win32_DirectWriteTypeface.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_win32_DirectWriteTypeLayout.cpp = ..\..\..\..\modules\juce_graphics\native\juce_win32_DirectWriteTypeLayout.cpp
 		..\..\..\..\modules\juce_graphics\native\juce_win32_Fonts.cpp = ..\..\..\..\modules\juce_graphics\native\juce_win32_Fonts.cpp
+		..\..\..\..\modules\juce_graphics\native\juce_win32_IconHelpers.cpp = ..\..\..\..\modules\juce_graphics\native\juce_win32_IconHelpers.cpp
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "placement", "placement", "{A3856E0A-3F84-E9FF-DC21-057DB1048DE1}"
@@ -856,9 +862,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "native", "native", "{50F1DC
 		..\..\..\..\modules\juce_gui_basics\native\juce_android_Windowing.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_android_Windowing.cpp
 		..\..\..\..\modules\juce_gui_basics\native\juce_ios_UIViewComponentPeer.mm = ..\..\..\..\modules\juce_gui_basics\native\juce_ios_UIViewComponentPeer.mm
 		..\..\..\..\modules\juce_gui_basics\native\juce_ios_Windowing.mm = ..\..\..\..\modules\juce_gui_basics\native\juce_ios_Windowing.mm
-		..\..\..\..\modules\juce_gui_basics\native\juce_linux_Clipboard.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_Clipboard.cpp
 		..\..\..\..\modules\juce_gui_basics\native\juce_linux_FileChooser.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_FileChooser.cpp
-		..\..\..\..\modules\juce_gui_basics\native\juce_linux_Windowing.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_Windowing.cpp
+		..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11.cpp
+		..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11.h = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11.h
+		..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11_Clipboard.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11_Clipboard.cpp
+		..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11_Windowing.cpp = ..\..\..\..\modules\juce_gui_basics\native\juce_linux_X11_Windowing.cpp
 		..\..\..\..\modules\juce_gui_basics\native\juce_mac_FileChooser.mm = ..\..\..\..\modules\juce_gui_basics\native\juce_mac_FileChooser.mm
 		..\..\..\..\modules\juce_gui_basics\native\juce_mac_MainMenu.mm = ..\..\..\..\modules\juce_gui_basics\native\juce_mac_MainMenu.mm
 		..\..\..\..\modules\juce_gui_basics\native\juce_mac_MouseCursor.mm = ..\..\..\..\modules\juce_gui_basics\native\juce_mac_MouseCursor.mm
@@ -1006,7 +1014,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}.Debug|Win32.Build.0 = Debug|Win32
+		{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}.Debug|Win32.ActiveCfg = Debug|Win32
 		{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}.Release|Win32.Build.0 = Release|Win32
+		{5B0FE56E-266D-A62C-D8A9-D1F5E7905AF2}.Release|Win32.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

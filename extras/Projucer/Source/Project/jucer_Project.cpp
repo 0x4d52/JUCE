@@ -153,6 +153,7 @@ void Project::setMissingAudioPluginDefaultValues()
     setValueIfVoid (getShouldBuildRTASAsValue(),                  false);
     setValueIfVoid (getShouldBuildAAXAsValue(),                   false);
     setValueIfVoid (getShouldBuildStandalonePluginAsValue(),      false);
+    setValueIfVoid (getShouldEnableIAAAsValue(),                  false);
 
     setValueIfVoid (getPluginName(),                    getTitle());
     setValueIfVoid (getPluginDesc(),                    getTitle());
@@ -399,7 +400,7 @@ bool Project::hasProjectBeenModified()
 File Project::resolveFilename (String filename) const
 {
     if (filename.isEmpty())
-        return File();
+        return {};
 
     filename = replacePreprocessorDefs (getPreprocessorDefs(), filename);
 
@@ -629,6 +630,9 @@ void Project::createAudioPluginPropertyEditors (PropertyListBuilder& props)
                "Whether the project should produce an AAX plugin.");
     props.add (new BooleanPropertyComponent (getShouldBuildStandalonePluginAsValue(), "Build Standalone Plug-In", "Enabled"),
                "Whether the project should produce a standalone version of your plugin.");
+    props.add (new BooleanPropertyComponent (getShouldEnableIAAAsValue(), "Enable Inter-App Audio", "Enabled"),
+               "Whether a standalone plug-in should be an Inter-App Audio app. You should also enable the audio "
+               "background capability in the iOS exporter.");
 
     props.add (new TextPropertyComponent (getPluginName(), "Plugin Name", 128, false),
                "The name of your plugin (keep it short!)");
@@ -851,7 +855,7 @@ String Project::Item::getFilePath() const
     if (isFile())
         return state [Ids::file].toString();
 
-    return String();
+    return {};
 }
 
 File Project::Item::getFile() const
@@ -859,7 +863,7 @@ File Project::Item::getFile() const
     if (isFile())
         return project.resolveFilename (state [Ids::file].toString());
 
-    return File();
+    return {};
 }
 
 void Project::Item::setFile (const File& file)
@@ -1258,6 +1262,34 @@ String Project::getAUMainTypeCode()
     return s;
 }
 
+String Project::getIAATypeCode()
+{
+    String s;
+    if (getPluginWantsMidiInput().getValue())
+    {
+        if (getPluginIsSynth().getValue())
+            s = "auri";
+        else
+            s = "aurm";
+    }
+    else
+    {
+        if (getPluginIsSynth().getValue())
+            s = "aurg";
+        else
+            s = "aurx";
+    }
+    return s;
+}
+
+String Project::getIAAPluginName()
+{
+    String s = getPluginManufacturer().toString();
+    s << ": ";
+    s << getPluginName().toString();
+    return s;
+}
+
 String Project::getPluginVSTCategoryString()
 {
     String s (getPluginVSTCategory().toString().trim());
@@ -1331,7 +1363,7 @@ String Project::getFileTemplate (const String& templateName)
         return String::fromUTF8 (data, dataSize);
 
     jassertfalse;
-    return String();
+    return {};
 
 }
 

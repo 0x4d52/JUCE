@@ -88,7 +88,7 @@ public:
     //==============================================================================
     CachedValue<String> androidScreenOrientation, androidActivityClass, androidActivitySubClassName,
                         androidVersionCode, androidMinimumSDK, androidTheme,
-                        androidSharedLibraries, androidStaticLibraries;
+                        androidSharedLibraries, androidStaticLibraries, androidExtraAssetsFolder;
 
     CachedValue<bool>   androidInternetNeeded, androidMicNeeded, androidBluetoothNeeded;
     CachedValue<String> androidOtherPermissions;
@@ -108,6 +108,7 @@ public:
           androidTheme (settings, Ids::androidTheme, nullptr),
           androidSharedLibraries (settings, Ids::androidSharedLibraries, nullptr, ""),
           androidStaticLibraries (settings, Ids::androidStaticLibraries, nullptr, ""),
+          androidExtraAssetsFolder (settings, Ids::androidExtraAssetsFolder, nullptr, ""),
           androidInternetNeeded (settings, Ids::androidInternetNeeded, nullptr, true),
           androidMicNeeded (settings, Ids::microphonePermissionNeeded, nullptr, false),
           androidBluetoothNeeded (settings, Ids::androidBluetoothNeeded, nullptr, true),
@@ -116,8 +117,8 @@ public:
           androidKeyStorePass (settings, Ids::androidKeyStorePass, nullptr, "android"),
           androidKeyAlias (settings, Ids::androidKeyAlias, nullptr, "androiddebugkey"),
           androidKeyAliasPass (settings, Ids::androidKeyAliasPass, nullptr, "android"),
-          gradleVersion (settings, Ids::gradleVersion, nullptr, "2.14.1"),
-          androidPluginVersion (settings, Ids::androidPluginVersion, nullptr, "2.2.3"),
+          gradleVersion (settings, Ids::gradleVersion, nullptr, "3.3"),
+          androidPluginVersion (settings, Ids::androidPluginVersion, nullptr, "2.3.0"),
           gradleToolchain (settings, Ids::gradleToolchain, nullptr, "clang"),
           buildToolsVersion (settings, Ids::buildToolsVersion, nullptr, "25.0.2"),
           AndroidExecutable (findAndroidExecutable())
@@ -133,7 +134,7 @@ public:
     void createToolchainExporterProperties (PropertyListBuilder& props)
     {
         props.add (new TextWithDefaultPropertyComponent<String> (gradleVersion, "gradle version", 32),
-                   "The version of gradle that is used to build this app (2.14.1 is fine for JUCE)");
+                   "The version of gradle that is used to build this app (3.3 is fine for JUCE)");
 
         props.add (new TextWithDefaultPropertyComponent<String> (androidPluginVersion, "android plug-in version", 32),
                    "The version of the android build plugin for gradle that is used to build this app");
@@ -216,6 +217,18 @@ public:
         }
 
         writeCmakeFile (appFolder.getChildFile ("CMakeLists.txt"));
+
+        const String androidExtraAssetsFolderValue = androidExtraAssetsFolder.get();
+        if (androidExtraAssetsFolderValue.isNotEmpty())
+        {
+            File extraAssets (getProject().getFile().getParentDirectory().getChildFile(androidExtraAssetsFolderValue));
+            if (extraAssets.exists() && extraAssets.isDirectory())
+            {
+                const File assetsFolder (appFolder.getChildFile ("src/main/assets"));
+                if (assetsFolder.deleteRecursively())
+                    extraAssets.copyDirectoryTo (assetsFolder);
+            }
+        }
     }
 
     void removeOldFiles (const File& targetFolder) const
@@ -271,7 +284,7 @@ public:
            return defaultInstallation;
       #endif
 
-        return File();
+        return {};
     }
 
 protected:
@@ -346,9 +359,10 @@ private:
         if (cfgExtraLinkerFlags.isNotEmpty())
         {
             mo << "SET( JUCE_LDFLAGS \"" << cfgExtraLinkerFlags.replace ("\"", "\\\"") << "\")" << newLine;
-            mo << "SET( CMAKE_EXE_LINKER_FLAGS  \"${CMAKE_EXE_LINKER_FLAGS} ${JUCE_LDFLAGS}\")" << newLine << newLine;
+            mo << "SET( CMAKE_SHARED_LINKER_FLAGS  \"${CMAKE_EXE_LINKER_FLAGS} ${JUCE_LDFLAGS}\")" << newLine << newLine;
         }
 
+        const StringArray userLibraries = StringArray::fromTokens(getExternalLibrariesString(), ";", "");
         if (getNumConfigurations() > 0)
         {
             bool first = true;
@@ -376,7 +390,20 @@ private:
                     mo << "    add_definitions(" << getEscapedPreprocessorDefs (cfgDefines).joinIntoString (" ") << ")" << newLine;
 
                 writeCmakePathLines (mo, "    ", "include_directories( AFTER", cfgHeaderPaths);
-                writeCmakePathLines (mo, "    ", "link_directories(", cfgLibraryPaths);
+
+                if (userLibraries.size() > 0)
+                {
+                    for (auto& lib : userLibraries)
+                    {
+                        String findLibraryCmd;
+                        findLibraryCmd << "find_library(" << lib.toLowerCase().replaceCharacter (L' ', L'_')
+                            << " \"" << lib << "\" PATHS";
+
+                        writeCmakePathLines (mo, "    ", findLibraryCmd, cfgLibraryPaths, "    NO_CMAKE_FIND_ROOT_PATH)");
+                    }
+
+                    mo << newLine;
+                }
 
                 first = false;
             }
@@ -414,8 +441,7 @@ private:
             mo << newLine;
         }
 
-        const StringArray& libraries = getProjectLibraries();
-
+        StringArray libraries (getAndroidLibraries());
         if (libraries.size() > 0)
         {
             for (auto& lib : libraries)
@@ -424,6 +450,7 @@ private:
             mo << newLine;
         }
 
+        libraries.addArray (userLibraries);
         mo << "target_link_libraries( ${BINARY_NAME}";
         if (libraries.size() > 0)
         {
@@ -461,7 +488,7 @@ private:
     }
 
     //==============================================================================
-    String getAppBuildGradleFileContent () const
+    String getAppBuildGradleFileContent() const
     {
         MemoryOutputStream mo;
         mo << "apply plugin: 'com.android." << (isLibrary() ? "library" : "application") << "'" << newLine << newLine;
@@ -683,6 +710,9 @@ private:
 
         props.add (new TextWithDefaultPropertyComponent<String> (androidMinimumSDK, "Minimum SDK version", 32),
                    "The number of the minimum version of the Android SDK that the app requires");
+
+        props.add (new TextPropertyComponent (androidExtraAssetsFolder.getPropertyAsValue(), "Extra Android Assets", 256, false),
+                   "A path to a folder (relative to the project folder) which conatins extra android assets.");
     }
 
     //==============================================================================
@@ -722,7 +752,18 @@ private:
     {
         props.add (new TextPropertyComponent (androidTheme.getPropertyAsValue(), "Android Theme", 256, false),
                    "E.g. @android:style/Theme.NoTitleBar or leave blank for default");
+
+        static const char* cppStandardNames[]  = { "C++03",       "C++11",       "C++14",        nullptr };
+        static const char* cppStandardValues[] = { "-std=c++03",  "-std=c++11",  "-std=c++14",   nullptr };
+
+        props.add (new ChoicePropertyComponent (getCppStandardValue(), "C++ standard to use",
+                                                StringArray (cppStandardNames), Array<var>  (cppStandardValues)),
+                                                "The C++ standard to specify in the makefile");
     }
+
+    //==============================================================================
+    Value getCppStandardValue()                         { return getSetting (Ids::cppLanguageStandard); }
+    String getCppStandardString() const                 { return settings[Ids::cppLanguageStandard]; }
 
     //==============================================================================
     String createDefaultClassName() const
@@ -1007,7 +1048,12 @@ private:
     StringArray getAndroidCxxCompilerFlags() const
     {
         StringArray cxxFlags (getAndroidCompilerFlags());
-        cxxFlags.add ("\"-std=gnu++11\"");
+        String cppStandardToUse (getCppStandardString());
+
+        if (cppStandardToUse.isEmpty())
+            cppStandardToUse = "-std=c++11";
+
+        cxxFlags.add ("\"" + cppStandardToUse + "\"");
 
         return cxxFlags;
     }
@@ -1037,6 +1083,9 @@ private:
         defines.set ("JUCE_ANDROID_API_VERSION", androidMinimumSDK.get());
         defines.set ("JUCE_ANDROID_ACTIVITY_CLASSNAME", getJNIActivityClassName().replaceCharacter ('/', '_'));
         defines.set ("JUCE_ANDROID_ACTIVITY_CLASSPATH", "\"" + getJNIActivityClassName() + "\"");
+
+        if (supportsGLv3())
+            defines.set ("JUCE_ANDROID_GL_ES_VERSION_3_0", "1");
 
         return defines;
     }
@@ -1072,16 +1121,8 @@ private:
 
         libraries.add ("log");
         libraries.add ("android");
-        libraries.add (androidMinimumSDK.get().getIntValue() >= 18 ? "GLESv3" : "GLESv2");
+        libraries.add (supportsGLv3() ? "GLESv3" : "GLESv2");
         libraries.add ("EGL");
-
-        return libraries;
-    }
-
-    StringArray getProjectLibraries() const
-    {
-        StringArray libraries (getAndroidLibraries());
-        libraries.addArray (StringArray::fromLines (getExternalLibrariesString()));
 
         return libraries;
     }
@@ -1105,7 +1146,8 @@ private:
         return relative.toUnixStyle();
     }
 
-    void writeCmakePathLines (MemoryOutputStream& mo, const String& prefix, const String& firstLine, const StringArray& paths) const
+    void writeCmakePathLines (MemoryOutputStream& mo, const String& prefix, const String& firstLine, const StringArray& paths,
+                              const String& suffix = ")") const
     {
         if (paths.size() > 0)
         {
@@ -1114,7 +1156,7 @@ private:
             for (auto& path : paths)
                 mo << prefix << "    \"" << escapeDirectoryForCmake (path) << "\"" << newLine;
 
-            mo << prefix << ")" << newLine << newLine;
+            mo << prefix << suffix << newLine << newLine;
         }
     }
 
@@ -1262,6 +1304,11 @@ private:
             escapedArray.add ("\"" + element.replace ("\\", "\\\\").replace ("\"", "\\\"") + "\"");
 
         return escapedArray.joinIntoString (", ");
+    }
+
+    bool supportsGLv3() const
+    {
+        return (androidMinimumSDK.get().getIntValue() >= 18);
     }
 
     //==============================================================================

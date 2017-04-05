@@ -22,8 +22,7 @@
   ==============================================================================
 */
 
-#ifndef JUCER_PROJECTEXPORTER_H_INCLUDED
-#define JUCER_PROJECTEXPORTER_H_INCLUDED
+#pragma once
 
 #include "../Project/jucer_Project.h"
 #include "../Project/jucer_ProjectType.h"
@@ -158,6 +157,8 @@ public:
     void addToExtraSearchPaths (const RelativePath& pathFromProjectFolder, int index = -1);
     void addToModuleLibPaths   (const RelativePath& pathFromProjectFolder);
 
+    void addProjectPathToBuildPathList (StringArray&, const RelativePath&, int index = -1) const;
+
     Value getBigIconImageItemID()               { return getSetting (Ids::bigIcon); }
     Value getSmallIconImageItemID()             { return getSetting (Ids::smallIcon); }
     Drawable* getBigIcon() const;
@@ -217,7 +218,7 @@ public:
         //==============================================================================
         virtual void createConfigProperties (PropertyListBuilder&) = 0;
         virtual var getDefaultOptimisationLevel() const = 0;
-        virtual String getLibrarySubdirPath() const         { return String(); }
+        virtual String getLibrarySubdirPath() const         { return {}; }
 
 
         //==============================================================================
@@ -362,11 +363,14 @@ protected:
 
     static String getDefaultBuildsRootFolder()            { return "Builds/"; }
 
-    static String getLibbedFilename (String name)
+    static String getStaticLibbedFilename (String name)
     {
-        if (! name.startsWith ("lib"))         name = "lib" + name;
-        if (! name.endsWithIgnoreCase (".a"))  name += ".a";
-        return name;
+        return addSuffix (addLibPrefix (name), ".a");
+    }
+
+    static String getDynamicLibbedFilename (String name)
+    {
+        return addSuffix (addLibPrefix (name), ".so");
     }
 
     virtual void addPlatformSpecificSettingsForProjectType (const ProjectType&) = 0;
@@ -411,16 +415,24 @@ protected:
 
 private:
     //==============================================================================
+    static String addLibPrefix (const String name)
+    {
+        return name.startsWith ("lib") ? name
+                                       : "lib" + name;
+    }
+
+    static String addSuffix (const String name, const String suffix)
+    {
+        return name.endsWithIgnoreCase (suffix) ? name
+                                                : name + suffix;
+    }
+
     void createDependencyPathProperties (PropertyListBuilder&);
     void createIconProperties (PropertyListBuilder&);
     void addVSTPathsIfPluginOrHost();
     void addCommonAudioPluginSettings();
     void addVST3FolderToPath();
     void addAAXFoldersToPath();
-    void addProjectPathToBuildPathList (StringArray&, const RelativePath&, int index = -1);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProjectExporter)
 };
-
-
-#endif   // JUCER_PROJECTEXPORTER_H_INCLUDED
