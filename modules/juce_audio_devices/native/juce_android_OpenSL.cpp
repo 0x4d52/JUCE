@@ -78,7 +78,7 @@ class SlObjectRef
 {
 public:
     //==============================================================================
-    SlObjectRef () noexcept {}
+    SlObjectRef() noexcept {}
     SlObjectRef (const SlObjectRef&  obj) noexcept : cb (obj.cb) {}
     SlObjectRef (SlObjectRef&& obj) noexcept : cb (static_cast<ReferenceCountedObjectPtr<ControlBlock>&&> (obj.cb)) { obj.cb = nullptr; }
     explicit SlObjectRef (SLObjectItf o) : cb (new ControlBlock (o)) {}
@@ -108,7 +108,7 @@ class SlRef : public SlObjectRef
 {
 public:
     //==============================================================================
-    SlRef () noexcept : type (nullptr) {}
+    SlRef() noexcept : type (nullptr) {}
     SlRef (SlRef& r)  noexcept : SlObjectRef (r), type (r.type) {}
     SlRef (SlRef&& r) noexcept : SlObjectRef (static_cast<SlRef&&> (r)), type (r.type) { r.type = nullptr; }
 
@@ -315,9 +315,9 @@ public:
             (*queue)->Clear (queue);
         }
 
-        void enqueueBuffer ()
+        void enqueueBuffer()
         {
-            (*queue)->Enqueue (queue, getCurrentBuffer(), getBufferSizeInSamples() * sizeof (T));
+            (*queue)->Enqueue (queue, getCurrentBuffer(), static_cast<SLuint32> (getBufferSizeInSamples() * sizeof (T)));
             ++numBlocksOut;
         }
 
@@ -724,6 +724,7 @@ public:
     //==============================================================================
     OpenSLAudioIODevice (const String& deviceName)
         : AudioIODevice (deviceName, openSLTypeName),
+          actualBufferSize (0), sampleRate (0),
           audioProcessingEnabled (true),
           callback (nullptr)
     {
@@ -845,12 +846,26 @@ public:
         }
 
         session = OpenSLSession::create (slLibrary, numInputChannels, numOutputChannels,
-                                               sampleRate, actualBufferSize, audioBuffersToEnqueue,
-                                               supportsFloatingPoint);
+                                         sampleRate, actualBufferSize, audioBuffersToEnqueue,
+                                         supportsFloatingPoint);
+        if (session != nullptr)
+            session->setAudioPreprocessingEnabled (audioProcessingEnabled);
+        else
+        {
+            if (numInputChannels > 0 && numOutputChannels > 0 && RuntimePermissions::isGranted (RuntimePermissions::recordAudio))
+            {
+                // New versions of the Android emulator do not seem to support audio input anymore on OS X
+                activeInputChans = BigInteger(0);
+                numInputChannels = 0;
+
+                session = OpenSLSession::create(slLibrary, numInputChannels, numOutputChannels,
+                                                sampleRate, actualBufferSize, audioBuffersToEnqueue,
+                                                supportsFloatingPoint);
+            }
+        }
+
         if (session == nullptr)
             lastError = "Unknown error initializing opensl session";
-
-        session->setAudioPreprocessingEnabled (audioProcessingEnabled);
 
         deviceOpen = (session != nullptr);
         return lastError;
@@ -957,8 +972,8 @@ private:
     {
         // The number of buffers to enqueue needs to be at least two for the audio to use the low-latency
         // audio path (see "Performance" section in ndk/docs/Additional_library_docs/opensles/index.html)
-        buffersToEnqueueForLowLatency = 2,
-        buffersToEnqueueSlowAudio = 4,
+        buffersToEnqueueForLowLatency = 4,
+        buffersToEnqueueSlowAudio = 8,
         defaultBufferSizeIsMultipleOfNative = 1
     };
 
@@ -971,7 +986,7 @@ private:
         if (text.get() != 0)
             return juceString (text);
 
-        return String();
+        return {};
     }
 
     static bool androidHasSystemFeature (const String& property)
