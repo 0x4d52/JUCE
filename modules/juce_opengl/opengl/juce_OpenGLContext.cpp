@@ -2,22 +2,24 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2015 - ROLI Ltd.
+   Copyright (c) 2017 - ROLI Ltd.
 
-   Permission is granted to use this software under the terms of either:
-   a) the GPL v2 (or any later version)
-   b) the Affero GPL v3
+   JUCE is an open source library subject to commercial or open-source
+   licensing.
 
-   Details of these licenses can be found at: www.gnu.org/licenses
+   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
+   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
+   27th April 2017).
 
-   JUCE is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-   A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+   End User License Agreement: www.juce.com/juce-5-licence
+   Privacy Policy: www.juce.com/juce-5-privacy-policy
 
-   ------------------------------------------------------------------------------
+   Or: You may also use this code under the terms of the GPL v3 (see
+   www.gnu.org/licenses).
 
-   To release a closed-source product which uses JUCE, commercial licenses are
-   available: visit www.juce.com for more information.
+   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
+   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
+   DISCLAIMED.
 
   ==============================================================================
 */
@@ -662,16 +664,9 @@ public:
 
     void detach()
     {
-        stopTimer();
-
         Component& comp = *getComponent();
 
-       #if JUCE_MAC
-        [[(NSView*) comp.getWindowHandle() window] disableScreenUpdatesUntilFlush];
-       #endif
-
-        if (CachedImage* const oldCachedImage = CachedImage::get (comp))
-            oldCachedImage->stop(); // (must stop this before detaching it from the component)
+        stop();
 
         comp.setCachedComponentImage (nullptr);
         context.nativeContext = nullptr;
@@ -730,12 +725,22 @@ public:
     }
    #endif
 
+    void update()
+    {
+        Component& comp = *getComponent();
+
+        if (canBeAttached (comp))
+            start();
+        else
+            stop();
+    }
+
 private:
     OpenGLContext& context;
 
-    static bool canBeAttached (const Component& comp) noexcept
+    bool canBeAttached (const Component& comp) noexcept
     {
-        return comp.getWidth() > 0 && comp.getHeight() > 0 && isShowingOrMinimised (comp);
+        return (! context.overrideCanAttach) && comp.getWidth() > 0 && comp.getHeight() > 0 && isShowingOrMinimised (comp);
     }
 
     static bool isShowingOrMinimised (const Component& c)
@@ -761,10 +766,35 @@ private:
                                                              context.openGLPixelFormat,
                                                              context.contextToShareWith);
         comp.setCachedComponentImage (newCachedImage);
-        newCachedImage->start(); // (must wait until this is attached before starting its thread)
-        newCachedImage->updateViewportSize (true);
 
-        startTimer (400);
+        start();
+    }
+
+    void stop()
+    {
+        stopTimer();
+
+        Component& comp = *getComponent();
+
+       #if JUCE_MAC
+        [[(NSView*) comp.getWindowHandle() window] disableScreenUpdatesUntilFlush];
+       #endif
+
+        if (CachedImage* const oldCachedImage = CachedImage::get (comp))
+            oldCachedImage->stop(); // (must stop this before detaching it from the component)
+    }
+
+    void start()
+    {
+        Component& comp = *getComponent();
+
+        if (CachedImage* const cachedImage = CachedImage::get (comp))
+        {
+            cachedImage->start(); // (must wait until this is attached before starting its thread)
+            cachedImage->updateViewportSize (true);
+
+            startTimer (400);
+        }
     }
 
     void timerCallback() override
@@ -782,7 +812,8 @@ OpenGLContext::OpenGLContext()
       imageCacheMaxSize (8 * 1024 * 1024),
       renderComponents (true),
       useMultisampling (false),
-      continuousRepaint (false)
+      continuousRepaint (false),
+      overrideCanAttach (false)
 {
 }
 
@@ -1020,6 +1051,17 @@ void OpenGLContext::execute (OpenGLContext::AsyncWorker::Ptr workerToUse, bool s
         c->execute (static_cast<OpenGLContext::AsyncWorker::Ptr&&> (workerToUse), shouldBlock);
     else
         jassertfalse; // You must have attached the context to a component
+}
+
+void OpenGLContext::overrideCanBeAttached (bool newCanAttach)
+{
+    if (overrideCanAttach != newCanAttach)
+    {
+        overrideCanAttach = newCanAttach;
+
+        if (Attachment* a = attachment)
+            a->update();
+    }
 }
 
 //==============================================================================

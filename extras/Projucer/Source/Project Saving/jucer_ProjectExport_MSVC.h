@@ -1,23 +1,25 @@
 /*
   ==============================================================================
 
-  This file is part of the JUCE library.
-  Copyright (c) 2015 - ROLI Ltd.
+   This file is part of the JUCE library.
+   Copyright (c) 2017 - ROLI Ltd.
 
-  Permission is granted to use this software under the terms of either:
-  a) the GPL v2 (or any later version)
-  b) the Affero GPL v3
+   JUCE is an open source library subject to commercial or open-source
+   licensing.
 
-  Details of these licenses can be found at: www.gnu.org/licenses
+   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
+   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
+   27th April 2017).
 
-  JUCE is distributed in the hope that it will be useful, but WITHOUT ANY
-  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-  A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+   End User License Agreement: www.juce.com/juce-5-licence
+   Privacy Policy: www.juce.com/juce-5-privacy-policy
 
-  ------------------------------------------------------------------------------
+   Or: You may also use this code under the terms of the GPL v3 (see
+   www.gnu.org/licenses).
 
-  To release a closed-source product which uses JUCE, commercial licenses are
-  available: visit www.juce.com for more information.
+   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
+   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
+   DISCLAIMED.
 
   ==============================================================================
 */
@@ -194,18 +196,27 @@ public:
         //==============================================================================
         void writeProjectFile()
         {
-            XmlElement projectXml (getTopLevelXmlEntity());
-            fillInProjectXml (projectXml);
-            writeXmlOrThrow (projectXml, getVCProjFile(), "UTF-8", 10);
+            {
+                XmlElement projectXml (getTopLevelXmlEntity());
+                fillInProjectXml (projectXml);
+                writeXmlOrThrow (projectXml, getVCProjFile(), "UTF-8", 10);
+            }
+
+            {
+                XmlElement filtersXml (getTopLevelXmlEntity());
+                fillInFiltersXml (filtersXml);
+                writeXmlOrThrow (filtersXml, getVCProjFiltersFile(), "UTF-8", 100);
+            }
         }
 
         virtual void fillInProjectXml (XmlElement& projectXml) const = 0;
+        virtual void fillInFiltersXml (XmlElement& filtersXml) const = 0;
 
         String getSolutionTargetPath (const BuildConfiguration& config) const
         {
             const String binaryPath (config.getTargetBinaryRelativePathString().trim());
             if (binaryPath.isEmpty())
-                return "$(SolutionDir)\\$(Platform)\\$(Configuration)";
+                return "$(SolutionDir)$(Platform)\\$(Configuration)";
 
             RelativePath binaryRelPath (binaryPath, RelativePath::projectFolder);
 
@@ -342,7 +353,7 @@ public:
                 const String macOSDir       = bundleContents + String ("\\") + (is64Bit ? "x64" : "Win32");
                 const String executable     = macOSDir + String ("\\") + config.getOutputFilename (".aaxplugin", true);
 
-                return String ("copy /Y \"") + getOutputFilePath (config) + String ("\" \"") + executable + String ("\"\r\n") +
+                return String ("copy /Y \"") + getOutputFilePath (config) + String ("\" \"") + executable + String ("\"\r\ncall ") +
                     createRebasedPath (bundleScript) + String (" \"") + macOSDir + String ("\" ") + createRebasedPath (iconFilePath);
             }
 
@@ -540,8 +551,10 @@ public:
         }
 
         virtual String getProjectFileSuffix() const = 0;
+        virtual String getFiltersFileSuffix() const = 0;
 
-        File getVCProjFile() const    { return getOwner().getProjectFile (getProjectFileSuffix(), getName()); }
+        File getVCProjFile() const            { return getOwner().getProjectFile (getProjectFileSuffix(), getName()); }
+        File getVCProjFiltersFile() const     { return getOwner().getProjectFile (getFiltersFileSuffix(), getName()); }
 
         String createRebasedPath (const RelativePath& path) const    {  return getOwner().createRebasedPath (path); }
 
@@ -593,6 +606,14 @@ public:
     }
 
     //==============================================================================
+    Value getManifestFile() { return getSetting (Ids::msvcManifestFile); }
+    RelativePath getManifestPath() const
+    {
+        const String& path = settings [Ids::msvcManifestFile].toString();
+        return path.isEmpty() ? RelativePath() : RelativePath (settings [Ids::msvcManifestFile], RelativePath::projectFolder);
+    }
+
+    //==============================================================================
     const String& getProjectName() const         { return projectName; }
 
     virtual int getVisualStudioVersion() const = 0;
@@ -615,8 +636,10 @@ public:
        #endif
     }
 
-    void createExporterProperties (PropertyListBuilder&) override
+    void createExporterProperties (PropertyListBuilder& props) override
     {
+        props.add(new TextPropertyComponent(getManifestFile(), "Manifest file", 8192, false),
+            "Path to a manifest input file which should be linked into your binary (path is relative to jucer file).");
     }
 
     enum OptimisationLevel
@@ -749,36 +772,36 @@ protected:
     }
 
     //==============================================================================
-    virtual void addSolutionFiles (OutputStream&, StringArray&) const
-    {
-         // older VS targets do not support solution files, so do nothing!
-    }
-
     void writeProjectDependencies (OutputStream& out) const
     {
         const String sharedCodeGuid = getSharedCodeGuid();
-        for (int i = 0; i < targets.size(); ++i)
+
+        for (int addingOtherTargets = 0; addingOtherTargets < (sharedCodeGuid.isNotEmpty() ? 2 : 1); ++addingOtherTargets)
         {
-            if (MSVCTargetBase* target = targets[i])
+            for (int i = 0; i < targets.size(); ++i)
             {
-                out << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << projectName << " - "
-                    << target->getName() << "\", \""
-                    << target->getVCProjFile().getFileName() << "\", \"" << target->getProjectGuid() << '"' << newLine;
+                if (MSVCTargetBase* target = targets[i])
+                {
+                    if (sharedCodeGuid.isEmpty() || (addingOtherTargets != 0) == (target->type != ProjectType::Target::StandalonePlugIn))
+                    {
+                        out << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << projectName << " - "
+                            << target->getName() << "\", \""
+                            << target->getVCProjFile().getFileName() << "\", \"" << target->getProjectGuid() << '"' << newLine;
 
-                if (sharedCodeGuid.isNotEmpty() && target->type != ProjectType::Target::SharedCodeTarget)
-                    out << "\tProjectSection(ProjectDependencies) = postProject" << newLine
-                        << "\t\t" << sharedCodeGuid << " = " << sharedCodeGuid << newLine
-                        << "\tEndProjectSection" << newLine;
+                        if (sharedCodeGuid.isNotEmpty() && target->type != ProjectType::Target::SharedCodeTarget)
+                            out << "\tProjectSection(ProjectDependencies) = postProject" << newLine
+                                << "\t\t" << sharedCodeGuid << " = " << sharedCodeGuid << newLine
+                                << "\tEndProjectSection" << newLine;
 
-                out << "EndProject" << newLine;
+                        out << "EndProject" << newLine;
+                    }
+                }
             }
         }
     }
 
     void writeSolutionFile (OutputStream& out, const String& versionString, String commentString) const
     {
-        StringArray nestedProjects;
-
         if (commentString.isNotEmpty())
             commentString += newLine;
 
@@ -786,7 +809,6 @@ protected:
             << commentString << newLine;
 
         writeProjectDependencies (out);
-        addSolutionFiles (out, nestedProjects);
 
         out << "Global" << newLine
             << "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution" << newLine;
@@ -814,13 +836,6 @@ protected:
             << "\tGlobalSection(SolutionProperties) = preSolution" << newLine
             << "\t\tHideSolutionNode = FALSE" << newLine
             << "\tEndGlobalSection" << newLine;
-
-        if (nestedProjects.size() > 0)
-        {
-            out << "\tGlobalSection(NestedProjects) = preSolution" << newLine << "\t\t";
-            out << nestedProjects.joinIntoString ("\n\t\t") << newLine;
-            out << "\tEndGlobalSection" << newLine;
-        }
 
         out << "EndGlobal" << newLine;
     }
@@ -1098,6 +1113,7 @@ public:
         const MSVCProjectExporterVC2010& getOwner() const  { return dynamic_cast<const MSVCProjectExporterVC2010&> (owner); }
         String getProjectVersionString() const override    { return "10.00"; }
         String getProjectFileSuffix() const override       { return ".vcxproj"; }
+        String getFiltersFileSuffix() const override       { return ".vcxproj.filters"; }
         String getTopLevelXmlEntity() const override       { return "Project"; }
 
         //==============================================================================
@@ -1361,6 +1377,16 @@ public:
                     bsc->createNewChildElement ("OutputFile")->addTextElement (getOwner().getIntDirFile (config, config.getOutputFilename (".bsc", true)));
                 }
 
+                const RelativePath& manifestFile = getOwner().getManifestPath();
+                if (manifestFile.getRoot() != RelativePath::unknown)
+                {
+                    XmlElement* bsc = group->createNewChildElement ("Manifest");
+                    bsc->createNewChildElement ("AdditionalManifestFiles")
+                        ->addTextElement (manifestFile.rebased (getOwner().getProject().getFile().getParentDirectory(),
+                                          getOwner().getTargetFolder(),
+                                          RelativePath::buildTargetFolder).toWindowsStyle());
+                }
+
                 if (getTargetFileType() == staticLibrary && ! config.is64Bit())
                 {
                     XmlElement* lib = group->createNewChildElement ("Lib");
@@ -1422,6 +1448,7 @@ public:
             }
 
             getOwner().addPlatformToolsetToPropertyGroup (projectXml);
+            getOwner().addWindowsTargetPlatformVersionToPropertyGroup (projectXml);
             getOwner().addIPPSettingToPropertyGroup (projectXml);
         }
 
@@ -1450,20 +1477,34 @@ public:
                 for (int i = 0; i < projectItem.getNumChildren(); ++i)
                     addFilesToCompile (projectItem.getChild (i), cpps, headers, otherFiles);
             }
-            else if (projectItem.shouldBeAddedToTargetProject())
+            else if (projectItem.shouldBeAddedToTargetProject()
+                     && getOwner().getProject().getTargetTypeFromFilePath (projectItem.getFile(), true) == targetType)
             {
                 const RelativePath path (projectItem.getFile(), getOwner().getTargetFolder(), RelativePath::buildTargetFolder);
 
                 jassert (path.getRoot() == RelativePath::buildTargetFolder);
 
-                if (projectItem.shouldBeCompiled() && (path.hasFileExtension (cOrCppFileExtensions) || path.hasFileExtension (asmFileExtensions))
-                    && getOwner().getProject().getTargetTypeFromFilePath (projectItem.getFile(), true) == targetType)
+                if (path.hasFileExtension (cOrCppFileExtensions) || path.hasFileExtension (asmFileExtensions))
                 {
-                    XmlElement* e = cpps.createNewChildElement ("ClCompile");
-                    e->setAttribute ("Include", path.toWindowsStyle());
+                    if (targetType == SharedCodeTarget || projectItem.shouldBeCompiled())
+                    {
+                        auto* e = cpps.createNewChildElement ("ClCompile");
+                        e->setAttribute ("Include", path.toWindowsStyle());
 
-                    if (shouldUseStdCall (path))
-                        e->createNewChildElement ("CallingConvention")->addTextElement ("StdCall");
+                        if (shouldUseStdCall (path))
+                            e->createNewChildElement ("CallingConvention")->addTextElement ("StdCall");
+
+                        if (! projectItem.shouldBeCompiled())
+                            e->createNewChildElement ("ExcludedFromBuild")->addTextElement ("true");
+                    }
+                }
+                else if (path.hasFileExtension (headerFileExtensions))
+                {
+                    headers.createNewChildElement ("ClInclude")->setAttribute ("Include", path.toWindowsStyle());
+                }
+                else if (! path.hasFileExtension (objCFileExtensions))
+                {
+                    otherFiles.createNewChildElement ("None")->setAttribute ("Include", path.toWindowsStyle());
                 }
             }
         }
@@ -1472,6 +1513,121 @@ public:
         {
             const MSVCBuildConfiguration& msvcConfig = dynamic_cast<const MSVCBuildConfiguration&> (config);
             xml.setAttribute ("Condition", "'$(Configuration)|$(Platform)'=='" + msvcConfig.createMSVCConfigName() + "'");
+        }
+
+        //==============================================================================
+        void addFilterGroup (XmlElement& groups, const String& path) const
+        {
+            XmlElement* e = groups.createNewChildElement ("Filter");
+            e->setAttribute ("Include", path);
+            e->createNewChildElement ("UniqueIdentifier")->addTextElement (createGUID (path + "_guidpathsaltxhsdf"));
+        }
+
+        void addFileToFilter (const RelativePath& file, const String& groupPath,
+                              XmlElement& cpps, XmlElement& headers, XmlElement& otherFiles) const
+        {
+            XmlElement* e;
+
+            if (file.hasFileExtension (headerFileExtensions))
+                e = headers.createNewChildElement ("ClInclude");
+            else if (file.hasFileExtension (sourceFileExtensions))
+                e = cpps.createNewChildElement ("ClCompile");
+            else
+                e = otherFiles.createNewChildElement ("None");
+
+            jassert (file.getRoot() == RelativePath::buildTargetFolder);
+            e->setAttribute ("Include", file.toWindowsStyle());
+            e->createNewChildElement ("Filter")->addTextElement (groupPath);
+        }
+
+        bool addFilesToFilter (const Project::Item& projectItem, const String& path,
+                               XmlElement& cpps, XmlElement& headers, XmlElement& otherFiles, XmlElement& groups) const
+        {
+            const Type targetType = (getOwner().getProject().getProjectType().isAudioPlugin() ? type : SharedCodeTarget);
+
+            if (projectItem.isGroup())
+            {
+                bool filesWereAdded = false;
+
+                for (int i = 0; i < projectItem.getNumChildren(); ++i)
+                    if (addFilesToFilter (projectItem.getChild(i),
+                                          (path.isEmpty() ? String() : (path + "\\")) + projectItem.getChild(i).getName(),
+                                          cpps, headers, otherFiles, groups))
+                        filesWereAdded = true;
+
+                if (filesWereAdded)
+                    addFilterGroup (groups, path);
+
+                return filesWereAdded;
+            }
+            else if (projectItem.shouldBeAddedToTargetProject())
+            {
+                const RelativePath relativePath (projectItem.getFile(), getOwner().getTargetFolder(), RelativePath::buildTargetFolder);
+
+                jassert (relativePath.getRoot() == RelativePath::buildTargetFolder);
+
+                if (getOwner().getProject().getTargetTypeFromFilePath (projectItem.getFile(), true) == targetType
+                    && (targetType == SharedCodeTarget || projectItem.shouldBeCompiled()))
+                {
+                    addFileToFilter (relativePath, path.upToLastOccurrenceOf ("\\", false, false), cpps, headers, otherFiles);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool addFilesToFilter (const Array<RelativePath>& files, const String& path,
+                               XmlElement& cpps, XmlElement& headers, XmlElement& otherFiles, XmlElement& groups)
+        {
+            if (files.size() > 0)
+            {
+                addFilterGroup (groups, path);
+
+                for (int i = 0; i < files.size(); ++i)
+                    addFileToFilter (files.getReference(i), path, cpps, headers, otherFiles);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        void fillInFiltersXml (XmlElement& filterXml) const override
+        {
+            filterXml.setAttribute ("ToolsVersion", getOwner().getToolsVersion());
+            filterXml.setAttribute ("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003");
+
+            XmlElement* groupsXml  = filterXml.createNewChildElement ("ItemGroup");
+            XmlElement* cpps       = filterXml.createNewChildElement ("ItemGroup");
+            XmlElement* headers    = filterXml.createNewChildElement ("ItemGroup");
+            ScopedPointer<XmlElement> otherFilesGroup (new XmlElement ("ItemGroup"));
+
+            for (int i = 0; i < getOwner().getAllGroups().size(); ++i)
+            {
+                const Project::Item& group = getOwner().getAllGroups().getReference(i);
+
+                if (group.getNumChildren() > 0)
+                    addFilesToFilter (group, group.getName(), *cpps, *headers, *otherFilesGroup, *groupsXml);
+            }
+
+            if (getOwner().iconFile.exists())
+            {
+                XmlElement* e = otherFilesGroup->createNewChildElement ("None");
+                e->setAttribute ("Include", prependDot (getOwner().iconFile.getFileName()));
+                e->createNewChildElement ("Filter")->addTextElement (ProjectSaver::getJuceCodeGroupName());
+            }
+
+            if (otherFilesGroup->getFirstChildElement() != nullptr)
+                filterXml.addChildElement (otherFilesGroup.release());
+
+            if (getOwner().hasResourceFile())
+            {
+                XmlElement* rcGroup = filterXml.createNewChildElement ("ItemGroup");
+                XmlElement* e = rcGroup->createNewChildElement ("ResourceCompile");
+                e->setAttribute ("Include", prependDot (getOwner().rcFile.getFileName()));
+                e->createNewChildElement ("Filter")->addTextElement (ProjectSaver::getJuceCodeGroupName());
+            }
         }
 
     };
@@ -1526,71 +1682,6 @@ public:
 
         addToolsetProperty (props, toolsetNames, toolsets, numElementsInArray (toolsets));
         addIPPLibraryProperty (props);
-    }
-
-    //==============================================================================
-    void addSolutionFiles (OutputStream& out, StringArray& nestedProjects) const override
-    {
-        const bool ignoreRootGroup = (getAllGroups().size() == 1);
-        const int numberOfGroups = (ignoreRootGroup ? getAllGroups().getReference (0).getNumChildren()
-                                    : getAllGroups().size());
-        for (int i = 0; i < numberOfGroups; ++i)
-        {
-            const Project::Item& group = (ignoreRootGroup ? getAllGroups().getReference (0).getChild (i)
-                                          : getAllGroups().getReference (i));
-
-            if (group.getNumChildren() > 0)
-                addSolutionFiles (out, group, nestedProjects, String());
-        }
-    }
-
-    void addSolutionFiles (OutputStream& out, const Project::Item& item, StringArray& nestedProjectList, const String& parentGuid) const
-    {
-        jassert (item.isGroup());
-
-        const String groupGuid = createGUID (item.getID());
-
-        out << "Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"" << item.getName() << "\""
-            << ", \"" << item.getName() << "\", \"" << groupGuid << "\"" << newLine;
-
-        bool hasSubFiles = false;
-        const int n = item.getNumChildren();
-
-        for (int i = 0; i < n; ++i)
-        {
-            const Project::Item& child = item.getChild (i);
-
-            if (child.isFile())
-            {
-                if (! hasSubFiles)
-                {
-                    out << "\tProjectSection(SolutionItems) = preProject" << newLine;
-                    hasSubFiles = true;
-                }
-
-                const RelativePath path = RelativePath (child.getFilePath(), RelativePath::projectFolder)
-                    .rebased (getProject().getProjectFolder(), getSLNFile().getParentDirectory(),
-                              RelativePath::buildTargetFolder);
-
-                out << "\t\t" << path.toWindowsStyle() << " = " << path.toWindowsStyle() << newLine;
-            }
-        }
-
-        if (hasSubFiles)
-            out << "\tEndProjectSection" << newLine;
-
-        out << "EndProject" << newLine;
-
-        for (int i = 0; i < n; ++i)
-        {
-            const Project::Item& child = item.getChild (i);
-
-            if (child.isGroup())
-                addSolutionFiles (out, child, nestedProjectList, groupGuid);
-        }
-
-        if (parentGuid.isNotEmpty())
-            nestedProjectList.add (groupGuid + String (" = ") + parentGuid);
     }
 
     //==============================================================================
@@ -1666,7 +1757,8 @@ protected:
         }
     };
 
-    virtual void addPlatformToolsetToPropertyGroup (XmlElement&) const {}
+    virtual void addPlatformToolsetToPropertyGroup              (XmlElement&) const {}
+    virtual void addWindowsTargetPlatformVersionToPropertyGroup (XmlElement&) const {}
 
     void addIPPSettingToPropertyGroup (XmlElement& p) const
     {
@@ -1705,11 +1797,18 @@ public:
         name = getName();
     }
 
-    static const char* getName()                { return "Visual Studio 2012"; }
-    static const char* getValueTreeTypeName()   { return "VS2012"; }
-    int getVisualStudioVersion() const override { return 11; }
-    String getSolutionComment() const override  { return "# Visual Studio 2012"; }
-    String getDefaultToolset() const override   { return "v110"; }
+    static const char* getName()                 { return "Visual Studio 2012"; }
+    static const char* getValueTreeTypeName()    { return "VS2012"; }
+    int getVisualStudioVersion() const override  { return 11; }
+    String getSolutionComment() const override   { return "# Visual Studio 2012"; }
+    String getDefaultToolset() const override    { return "v110"; }
+    Value getWindowsTargetPlatformVersionValue() { return getSetting (Ids::windowsTargetPlatformVersion); }
+
+    String getWindowsTargetPlatformVersion() const
+    {
+        String targetPlatform = settings [Ids::windowsTargetPlatformVersion];
+        return (targetPlatform.isNotEmpty() ? targetPlatform : String ("10.0.14393.0"));
+    }
 
     static MSVCProjectExporterVC2012* createForSettings (Project& project, const ValueTree& settings)
     {
@@ -1730,11 +1829,30 @@ public:
         addIPPLibraryProperty (props);
     }
 
+    void addWindowsTargetPlatformProperties (PropertyListBuilder& props)
+    {
+        static const char* targetPlatformNames[] = { "(default)", "8.1", "10.0.10240.0", "10.0.10586.0", "10.0.14393.0", "10.0.15063.0", nullptr };
+        const var targetPlatforms[]              = { var(),       "8.1", "10.0.10240.0", "10.0.10586.0", "10.0.14393.0", "10.0.15063.0" };
+
+        props.add (new ChoicePropertyComponent (getWindowsTargetPlatformVersionValue(), "Windows Target Platform",
+                                                StringArray (targetPlatformNames), Array<var> (targetPlatforms, numElementsInArray (targetPlatforms))),
+                                                "The Windows target platform version to use");
+    }
+
 private:
     void addPlatformToolsetToPropertyGroup (XmlElement& p) const override
     {
         forEachXmlChildElementWithTagName (p, e, "PropertyGroup")
             e->createNewChildElement ("PlatformToolset")->addTextElement (getPlatformToolset());
+    }
+
+    void addWindowsTargetPlatformVersionToPropertyGroup (XmlElement& p) const override
+    {
+        const String& targetVersion = getWindowsTargetPlatformVersion();
+
+        if (targetVersion.isNotEmpty())
+            forEachXmlChildElementWithTagName (p, e, "PropertyGroup")
+                e->createNewChildElement ("WindowsTargetPlatformVersion")->addTextElement (getWindowsTargetPlatformVersion());
     }
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2012)
@@ -1774,6 +1892,7 @@ public:
 
         addToolsetProperty (props, toolsetNames, toolsets, numElementsInArray (toolsets));
         addIPPLibraryProperty (props);
+        addWindowsTargetPlatformProperties (props);
     }
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2013)
@@ -1813,6 +1932,7 @@ public:
 
         addToolsetProperty (props, toolsetNames, toolsets, numElementsInArray (toolsets));
         addIPPLibraryProperty (props);
+        addWindowsTargetPlatformProperties (props);
     }
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2015)
@@ -1855,8 +1975,9 @@ public:
 
         addToolsetProperty (props, toolsetNames, toolsets, numElementsInArray (toolsets));
         addIPPLibraryProperty (props);
+        addWindowsTargetPlatformProperties (props);
 
-        static const char* cppStandardNames[]  = { "(default)", "C++14",    "Latest C++ Standard" };
+        static const char* cppStandardNames[]  = { "(default)", "C++14",    "Latest C++ Standard", nullptr };
 
         Array<var> cppStandardValues;
         cppStandardValues.add (var());
@@ -1866,7 +1987,6 @@ public:
         props.add (new ChoicePropertyComponent (getCppStandardValue(), "C++ standard to use",
                                                 StringArray (cppStandardNames), cppStandardValues),
                                                 "The C++ language standard to use");
-
     }
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2017)

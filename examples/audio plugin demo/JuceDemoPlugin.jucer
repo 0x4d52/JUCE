@@ -8,12 +8,13 @@
               pluginProducesMidiOut="1" pluginSilenceInIsSilenceOut="0" pluginTailLength="0"
               pluginEditorRequiresKeys="1" pluginAUExportPrefix="JuceDemoProjectAU"
               pluginAUViewClass="JuceDemoProjectAU_V1" pluginRTASCategory=""
-              bundleIdentifier="com.juce.JuceDemoPlugin" jucerVersion="4.3.1"
+              bundleIdentifier="com.juce.JuceDemoPlugin" jucerVersion="5.0.2"
               companyName="ROLI Ltd." aaxIdentifier="com.yourcompany.JuceDemoPlugin"
               buildAAX="0" pluginAAXCategory="AAX_ePlugInCategory_Dynamics"
               includeBinaryInAppConfig="1" buildVST3="0" pluginManufacturerEmail="support@yourcompany.com"
               companyWebsite="www.juce.com" companyEmail="info@juce.com" pluginIsMidiEffectPlugin="0"
-              buildAUv3="1" buildStandalone="1" enableIAA="0">
+              buildAUv3="1" buildStandalone="1" enableIAA="0" displaySplashScreen="0"
+              reportAppUsage="0" splashScreenColour="Dark">
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX" vstFolder="" rtasFolder="~/SDKs/PT_80_SDK"
                objCExtraSuffix="JuceDemo" aaxFolder="" postbuildCommand="" vst3Folder="">
@@ -82,7 +83,7 @@
         <MODULEPATH id="juce_audio_basics" path="../../modules"/>
       </MODULEPATHS>
     </VS2017>
-    <LINUX_MAKE targetFolder="Builds/Linux" vstFolder="" rtasFolder="~/SDKs/PT_80_SDK"
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" vstFolder="" rtasFolder="~/SDKs/PT_80_SDK"
                 vst3Folder="">
       <CONFIGURATIONS>
         <CONFIGURATION name="Debug" isDebug="1" optimisation="1" targetName="JuceDemoPlugin"

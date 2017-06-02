@@ -2,22 +2,24 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2015 - ROLI Ltd.
+   Copyright (c) 2017 - ROLI Ltd.
 
-   Permission is granted to use this software under the terms of either:
-   a) the GPL v2 (or any later version)
-   b) the Affero GPL v3
+   JUCE is an open source library subject to commercial or open-source
+   licensing.
 
-   Details of these licenses can be found at: www.gnu.org/licenses
+   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
+   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
+   27th April 2017).
 
-   JUCE is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-   A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+   End User License Agreement: www.juce.com/juce-5-licence
+   Privacy Policy: www.juce.com/juce-5-privacy-policy
 
-   ------------------------------------------------------------------------------
+   Or: You may also use this code under the terms of the GPL v3 (see
+   www.gnu.org/licenses).
 
-   To release a closed-source product which uses JUCE, commercial licenses are
-   available: visit www.juce.com for more information.
+   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
+   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
+   DISCLAIMED.
 
   ==============================================================================
 */
@@ -225,6 +227,11 @@ public:
         props.add (new BooleanPropertyComponent (getSetting ("keepCustomXcodeSchemes"), "Keep custom Xcode schemes", "Enabled"),
                    "Enable this to keep any Xcode schemes you have created for debugging or running, e.g. to launch a plug-in in"
                    "various hosts. If disabled, all schemes are replaced by a default set.");
+
+        props.add (new BooleanPropertyComponent (getSetting ("useHeaderMap"), "USE_HEADERMAP", "Enabled"),
+                   "Enable this to make Xcode search all the projects folders for include files. This means you can be lazy "
+                   "and not bother using relative paths to include your headers, but it means your code won't be "
+                   "compatible with other build systems");
     }
 
     bool launchProject() override
@@ -273,13 +280,6 @@ public:
 
         // Deleting the .rsrc files can be needed to force Xcode to update the version number.
         deleteRsrcFiles (getTargetFolder().getChildFile ("build"));
-
-        if (! ProjucerApplication::getApp().isRunningCommandLine)
-        {
-            // Workaround for a bug where Xcode thinks the project is invalid if opened immedietely
-            // after writing
-            Thread::sleep (2000);
-        }
     }
 
     //==============================================================================
@@ -331,17 +331,17 @@ protected:
         XcodeBuildConfiguration (Project& p, const ValueTree& t, const bool isIOS, const ProjectExporter& e)
             : BuildConfiguration (p, t, e),
               iOS (isIOS),
-              osxSDKVersion               (config, Ids::osxSDK,               nullptr, "default"),
-              osxDeploymentTarget         (config, Ids::osxCompatibility,     nullptr, "default"),
-              iosDeploymentTarget         (config, Ids::iosCompatibility,     nullptr, "default"),
-              osxArchitecture             (config, Ids::osxArchitecture,      nullptr, "default"),
-              customXcodeFlags            (config, Ids::customXcodeFlags,     nullptr),
-              cppLanguageStandard         (config, Ids::cppLanguageStandard,  nullptr),
-              cppStandardLibrary          (config, Ids::cppLibType,           nullptr),
-              codeSignIdentity            (config, Ids::codeSigningIdentity,  nullptr, iOS ? "iPhone Developer" : "Mac Developer"),
-              fastMathEnabled             (config, Ids::fastMath,             nullptr),
-              linkTimeOptimisationEnabled (config, Ids::linkTimeOptimisation, nullptr),
-              stripLocalSymbolsEnabled    (config, Ids::stripLocalSymbols,    nullptr),
+              osxSDKVersion               (config, Ids::osxSDK,                       nullptr, "default"),
+              osxDeploymentTarget         (config, Ids::osxCompatibility,             nullptr, "default"),
+              iosDeploymentTarget         (config, Ids::iosCompatibility,             nullptr, "default"),
+              osxArchitecture             (config, Ids::osxArchitecture,              nullptr, "default"),
+              customXcodeFlags            (config, Ids::customXcodeFlags,             nullptr),
+              cppLanguageStandard         (config, Ids::cppLanguageStandard,          nullptr),
+              cppStandardLibrary          (config, Ids::cppLibType,                   nullptr),
+              codeSignIdentity            (config, Ids::codeSigningIdentity,          nullptr, iOS ? "iPhone Developer" : "Mac Developer"),
+              fastMathEnabled             (config, Ids::fastMath,                     nullptr),
+              linkTimeOptimisationEnabled (config, Ids::linkTimeOptimisation,         nullptr),
+              stripLocalSymbolsEnabled    (config, Ids::stripLocalSymbols,            nullptr),
               vstBinaryLocation           (config, Ids::xcodeVstBinaryLocation,       nullptr, "$(HOME)/Library/Audio/Plug-Ins/VST/"),
               vst3BinaryLocation          (config, Ids::xcodeVst3BinaryLocation,      nullptr, "$(HOME)/Library/Audio/Plug-Ins/VST3/"),
               auBinaryLocation            (config, Ids::xcodeAudioUnitBinaryLocation, nullptr, "$(HOME)/Library/Audio/Plug-Ins/Components/"),
@@ -442,7 +442,8 @@ protected:
                        "Enable this to perform link-time code generation. This is recommended for release builds.");
 
             props.add (new BooleanPropertyComponent (stripLocalSymbolsEnabled.getPropertyAsValue(), "Strip local symbols", "Enabled"),
-                       "Enable this to strip any locally defined symbols resulting in a smaller binary size. Enabling this will also remove any function names from crash logs. Must be disabled for static library projects.");
+                       "Enable this to strip any locally defined symbols resulting in a smaller binary size. Enabling this "
+                       "will also remove any function names from crash logs. Must be disabled for static library projects.");
         }
 
         String getLibrarySubdirPath() const override
@@ -801,6 +802,8 @@ public:
             else if (arch == osxArch_64Bit)            s.add ("ARCHS = \"$(ARCHS_STANDARD_64_BIT)\"");
 
             s.add ("HEADER_SEARCH_PATHS = " + getHeaderSearchPaths (config));
+            s.add ("USE_HEADERMAP = " + String (static_cast<bool> (config.exporter.settings.getProperty ("useHeaderMap")) ? "YES" : "NO"));
+
             s.add ("GCC_OPTIMIZATION_LEVEL = " + config.getGCCOptimisationFlag());
 
             if (shouldCreatePList())
@@ -941,10 +944,10 @@ public:
                 s.add ("SEPARATE_STRIP = YES");
             }
 
-            if (owner.project.getProjectType().isAudioPlugin())
-                if ((owner.isOSX() && type == Target::AudioUnitv3PlugIn)
-                    || (owner.isiOS() && type == Target::StandalonePlugIn))
-                    s.add (String ("CODE_SIGN_ENTITLEMENTS = \"") + owner.getEntitlementsFileName() + String ("\""));
+            if (owner.project.getProjectType().isAudioPlugin()
+                && (   (owner.isOSX() && type == Target::AudioUnitv3PlugIn)
+                    || (owner.isiOS() && type == Target::StandalonePlugIn && owner.getProject().shouldEnableIAA())))
+                s.add (String ("CODE_SIGN_ENTITLEMENTS = \"") + owner.getEntitlementsFileName() + String ("\""));
 
             defines = mergePreprocessorDefs (defines, owner.getAllPreprocessorDefs (config, type));
 
@@ -1206,6 +1209,12 @@ public:
             StringArray paths (owner.extraSearchPaths);
             paths.addArray (config.getHeaderSearchPaths());
             paths.addArray (getTargetExtraHeaderSearchPaths());
+
+            // Always needed to compile .r files
+            paths.add (owner.getModuleFolderRelativeToProject ("juce_audio_plugin_client")
+                            .rebased (owner.projectFolder, owner.getTargetFolder(), RelativePath::buildTargetFolder)
+                            .toUnixStyle());
+
             paths.add ("$(inherited)");
 
             paths = getCleanedStringArray (paths);
@@ -2290,6 +2299,9 @@ private:
 
     String addProjectItem (const Project::Item& projectItem) const
     {
+        if (modulesGroup != nullptr && projectItem.getParent() == *modulesGroup)
+            return addFileReference (rebaseFromProjectFolderToBuildTarget (getModuleFolderRelativeToProject (projectItem.getName())).toUnixStyle());
+
         if (projectItem.isGroup())
         {
             StringArray childIDs;

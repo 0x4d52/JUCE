@@ -2,22 +2,24 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2015 - ROLI Ltd.
+   Copyright (c) 2017 - ROLI Ltd.
 
-   Permission is granted to use this software under the terms of either:
-   a) the GPL v2 (or any later version)
-   b) the Affero GPL v3
+   JUCE is an open source library subject to commercial or open-source
+   licensing.
 
-   Details of these licenses can be found at: www.gnu.org/licenses
+   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
+   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
+   27th April 2017).
 
-   JUCE is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-   A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+   End User License Agreement: www.juce.com/juce-5-licence
+   Privacy Policy: www.juce.com/juce-5-privacy-policy
 
-   ------------------------------------------------------------------------------
+   Or: You may also use this code under the terms of the GPL v3 (see
+   www.gnu.org/licenses).
 
-   To release a closed-source product which uses JUCE, commercial licenses are
-   available: visit www.juce.com for more information.
+   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
+   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
+   DISCLAIMED.
 
   ==============================================================================
 */
@@ -118,7 +120,7 @@ public:
           androidKeyAlias (settings, Ids::androidKeyAlias, nullptr, "androiddebugkey"),
           androidKeyAliasPass (settings, Ids::androidKeyAliasPass, nullptr, "android"),
           gradleVersion (settings, Ids::gradleVersion, nullptr, "3.3"),
-          androidPluginVersion (settings, Ids::androidPluginVersion, nullptr, "2.3.0"),
+          androidPluginVersion (settings, Ids::androidPluginVersion, nullptr, "2.3.1"),
           gradleToolchain (settings, Ids::gradleToolchain, nullptr, "clang"),
           buildToolsVersion (settings, Ids::buildToolsVersion, nullptr, "25.0.2"),
           AndroidExecutable (findAndroidExecutable())
@@ -347,13 +349,23 @@ private:
         if (! isLibrary())
             mo << "SET(BINARY_NAME \"juce_jni\")" << newLine << newLine;
 
+        mo << "add_library(\"cpufeatures\" STATIC \"${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c\")" << newLine << newLine;
+
         {
             StringArray projectDefines (getEscapedPreprocessorDefs (getProjectPreprocessorDefs()));
             if (projectDefines.size() > 0)
                 mo << "add_definitions(" << projectDefines.joinIntoString (" ") << ")" << newLine << newLine;
         }
 
-        writeCmakePathLines (mo, "", "include_directories( AFTER", extraSearchPaths);
+        {
+            mo << "include_directories( AFTER" << newLine;
+
+            for (auto& path : extraSearchPaths)
+                mo << "    \"" << escapeDirectoryForCmake (path) << "\"" << newLine;
+
+            mo << "    \"${ANDROID_NDK}/sources/android/cpufeatures\"" << newLine;
+            mo << ")" << newLine << newLine;
+        }
 
         const String& cfgExtraLinkerFlags = getExtraLinkerFlagsString();
         if (cfgExtraLinkerFlags.isNotEmpty())
@@ -458,6 +470,8 @@ private:
 
             for (auto& lib : libraries)
                 mo << "    ${" << lib.toLowerCase().replaceCharacter (L' ', L'_') << "}" << newLine;
+
+            mo << "    \"cpufeatures\"" << newLine;
         }
         mo << ")" << newLine;
 
@@ -768,7 +782,7 @@ private:
     //==============================================================================
     String createDefaultClassName() const
     {
-        String s (project.getBundleIdentifier().toString().toLowerCase());
+        auto s = project.getBundleIdentifier().toString().toLowerCase();
 
         if (s.length() > 5
             && s.containsChar ('.')
@@ -788,16 +802,16 @@ private:
 
     void initialiseDependencyPathValues()
     {
-        sdkPath.referTo (Value (new DependencyPathValueSource (getSetting (Ids::androidSDKPath),
-                                                               Ids::androidSDKPath, TargetOS::getThisOS())));
-
-        ndkPath.referTo (Value (new DependencyPathValueSource (getSetting (Ids::androidNDKPath),
-                                                               Ids::androidNDKPath, TargetOS::getThisOS())));
+        sdkPath.referTo  (Value (new DependencyPathValueSource (getSetting (Ids::androidSDKPath), Ids::androidSDKPath, TargetOS::getThisOS())));
+        ndkPath.referTo  (Value (new DependencyPathValueSource (getSetting (Ids::androidNDKPath), Ids::androidNDKPath, TargetOS::getThisOS())));
     }
 
     //==============================================================================
     void copyActivityJavaFiles (const OwnedArray<LibraryModule>& modules, const File& targetFolder, const String& package) const
     {
+        if (androidActivityClass.get().contains ("_"))
+            throw SaveError ("Your Android activity class name or path may not contain any underscores! Try a project name without underscores.");
+
         const String className (getActivityName());
 
         if (className.isEmpty())
@@ -805,9 +819,7 @@ private:
 
         createDirectoryOrThrow (targetFolder);
 
-        LibraryModule* const coreModule = getCoreModule (modules);
-
-        if (coreModule != nullptr)
+        if (auto* coreModule = getCoreModule (modules))
         {
             File javaDestFile (targetFolder.getChildFile (className + ".java"));
 
@@ -838,16 +850,14 @@ private:
                                    .replace ("JuceAppActivity", className);
             }
 
-            File javaSourceFile (javaSourceFolder.getChildFile ("JuceAppActivity.java"));
-            StringArray javaSourceLines (StringArray::fromLines (javaSourceFile.loadFileAsString()));
+            auto javaSourceFile = javaSourceFolder.getChildFile ("JuceAppActivity.java");
+            auto javaSourceLines = StringArray::fromLines (javaSourceFile.loadFileAsString());
 
             {
                 MemoryOutputStream newFile;
 
-                for (int i = 0; i < javaSourceLines.size(); ++i)
+                for (const auto& line : javaSourceLines)
                 {
-                    const String& line = javaSourceLines[i];
-
                     if (line.contains ("$$JuceAndroidMidiImports$$"))
                         newFile << juceMidiImports;
                     else if (line.contains ("$$JuceAndroidMidiCode$$"))
