@@ -148,6 +148,20 @@ public:
     */
     static Drawable* createFromSVG (const XmlElement& svgDocument);
 
+    /** Attempts to parse an SVG (Scalable Vector Graphics) document from a file, 
+        and to turn this into a Drawable tree.
+     
+        The object returned must be deleted by the caller. If something goes wrong
+        while parsing, it may return nullptr.
+     
+        SVG is a pretty large and complex spec, and this doesn't aim to be a full
+        implementation, but it can return the basic vector objects.
+     
+        Any references to references to external image files will be relative to
+        the parent directory of the file passed.
+    */
+    static Drawable* createFromSVGFile (const File& svgFile);
+    
     /** Parses an SVG path string and returns it. */
     static Path parseSVGPath (const String& svgPath);
 

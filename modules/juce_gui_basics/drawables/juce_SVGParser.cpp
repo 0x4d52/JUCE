@@ -28,7 +28,8 @@ class SVGState
 {
 public:
     //==============================================================================
-    explicit SVGState (const XmlElement* topLevel)  : topLevelXml (topLevel, nullptr)
+    explicit SVGState (const XmlElement* topLevel, const File& svgFile = {})
+    :   originalFile (svgFile), topLevelXml (topLevel, nullptr)
     {
     }
 
@@ -416,6 +417,7 @@ public:
 
 private:
     //==============================================================================
+    const File originalFile;
     const XmlPath topLevelXml;
     float width = 512, height = 512, viewBoxW = 0, viewBoxH = 0;
     AffineTransform transform;
@@ -463,9 +465,10 @@ private:
 
         auto tag = xml->getTagNameWithoutNamespace();
 
-        if (tag == "g")         return parseGroupElement (xml);
+        if (tag == "g")         return parseGroupElement (xml, true);
         if (tag == "svg")       return parseSVGElement (xml);
         if (tag == "text")      return parseText (xml, true);
+        if (tag == "image")     return parseImage (xml, true);
         if (tag == "switch")    return parseSwitch (xml);
         if (tag == "a")         return parseLinkElement (xml);
         if (tag == "style")     parseCSSStyle (xml);
@@ -498,9 +501,17 @@ private:
         return nullptr;
     }
 
-    DrawableComposite* parseGroupElement (const XmlPath& xml)
+    DrawableComposite* parseGroupElement (const XmlPath& xml, const bool shouldParseTransform = true)
     {
-        auto drawable = new DrawableComposite();
+        if (shouldParseTransform && xml->hasAttribute ("transform"))
+        {
+            SVGState newState (*this);
+            newState.addTransform (xml);
+            
+            return newState.parseGroupElement (xml, false);
+        }
+        
+        auto* drawable = new DrawableComposite();
 
         setCommonAttributes (*drawable, xml);
 
@@ -1077,6 +1088,70 @@ private:
     }
 
     //==============================================================================
+    
+    Drawable* parseImage (const XmlPath& xml, bool shouldParseTransform)
+    {
+        if (shouldParseTransform && xml->hasAttribute ("transform"))
+        {
+            SVGState newState (*this);
+            newState.addTransform (xml);
+            
+            return newState.parseImage (xml, false);
+        }
+     
+        auto link = xml->getStringAttribute ("xlink:href");
+        
+        ScopedPointer<InputStream> inputStream;
+        MemoryOutputStream imageStream;
+        
+        if (link.startsWith ("data:"))
+        {
+            const auto indexOfComma = link.indexOf (",");
+            auto format = link.substring (5, indexOfComma).trim();
+            
+            const auto indexOfSemi = format.indexOf (";");
+            
+            if (format.substring (indexOfSemi + 1).trim().equalsIgnoreCase ("base64"))
+            {
+                auto mime = format.substring (0, indexOfSemi).trim();
+                
+                if (mime.equalsIgnoreCase ("image/png") || mime.equalsIgnoreCase ("image/jpeg"))
+                {
+                    const String base64text = link.substring (indexOfComma + 1).removeCharacters ("\t\n\r ");
+                    
+                    if (Base64::convertFromBase64 (imageStream, base64text))
+                        inputStream = new MemoryInputStream (imageStream.getData(), imageStream.getDataSize(), false);
+                }
+            }
+        }
+        else
+        {
+            const File linkedFile (originalFile.getParentDirectory().getChildFile (link));
+            
+            if (linkedFile.existsAsFile())
+                inputStream = linkedFile.createInputStream();
+        }
+        
+        if (inputStream != nullptr)
+        {
+            Image image = ImageFileFormat::loadFrom (*inputStream);
+            
+            if (image.isValid())
+            {
+                auto* di = new DrawableImage();
+                
+                setCommonAttributes (*di, xml);
+                di->setImage (image);
+                di->setTransform (transform);
+                
+                return di;
+            }
+        }
+        
+        return nullptr;
+    }
+    
+    //==============================================================================
     void addTransform (const XmlPath& xml)
     {
         transform = parseTransform (xml->getStringAttribute ("transform"))
@@ -1558,6 +1633,25 @@ Drawable* Drawable::createFromSVG (const XmlElement& svgDocument)
 
     SVGState state (&svgDocument);
     return state.parseSVGElement (SVGState::XmlPath (&svgDocument, nullptr));
+}
+
+Drawable* Drawable::createFromSVGFile (const File& svgFile)
+{
+    XmlDocument doc (svgFile.loadFileAsString());
+    ScopedPointer<XmlElement> outer (doc.getDocumentElement (true));
+    
+    if (outer != nullptr && outer->hasTagName ("svg"))
+    {
+        ScopedPointer<XmlElement> svgDocument (doc.getDocumentElement());
+        
+        if (svgDocument != nullptr)
+        {
+            SVGState state (svgDocument, svgFile);
+            return state.parseSVGElement (SVGState::XmlPath (svgDocument, nullptr));
+        }
+    }
+    
+    return nullptr;
 }
 
 Path Drawable::parseSVGPath (const String& svgPath)
