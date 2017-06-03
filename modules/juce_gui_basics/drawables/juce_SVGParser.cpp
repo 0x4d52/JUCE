@@ -46,8 +46,9 @@ public:
             forEachXmlChildElement (*xml, e)
             {
                 XmlPath child (e, this);
-
-                if (e->compareAttribute ("id", id))
+                
+                if (e->compareAttribute ("id", id)
+                      && ! child->hasTagName ("defs"))
                 {
                     op (child);
                     return true;
@@ -73,6 +74,19 @@ public:
         void operator() (const XmlPath& xmlPath) const
         {
             state->parsePathElement (xmlPath, *targetPath);
+        }
+    };
+    
+    struct UseShapeOp
+    {
+        const SVGState* state;
+        Path* sourcePath;
+        AffineTransform* transform;
+        Drawable* target;
+      
+        void operator() (const XmlPath& xmlPath)
+        {
+            target = state->parseShape (xmlPath, *sourcePath, true, transform);
         }
     };
 
@@ -462,7 +476,7 @@ private:
 
     bool parsePathElement (const XmlPath& xml, Path& path) const
     {
-        const String tag (xml->getTagNameWithoutNamespace());
+        auto tag = xml->getTagNameWithoutNamespace();
 
         if (tag == "path")      { parsePath (xml, path);           return true; }
         if (tag == "rect")      { parseRect (xml, path);           return true; }
@@ -602,14 +616,22 @@ private:
         }
     }
 
-    void parseUse (const XmlPath& xml, Path& path) const
+    static String getLinkedID (const XmlPath& xml)
     {
         auto link = xml->getStringAttribute ("xlink:href");
-
+        
         if (link.startsWithChar ('#'))
-        {
-            auto linkedID = link.substring (1);
+            return link.substring (1);
+        
+        return {};
+    }
+    
+    void parseUse (const XmlPath& xml, Path& path) const
+    {
+        auto linkedID = getLinkedID (xml);
 
+        if (linkedID.isNotEmpty())
+        {
             UsePathOp op = { this, &path };
             topLevelXml.applyOperationToChildWithID (linkedID, op);
         }
@@ -625,8 +647,25 @@ private:
     }
 
     //==============================================================================
+    
+    Drawable* useShape (const XmlPath& xml, Path& path) const
+    {
+        auto translation = AffineTransform::translation ((float) xml->getDoubleAttribute ("x", 0.0),
+                                                         (float) xml->getDoubleAttribute ("y", 0.0));
+        
+        UseShapeOp op = { this, &path, &translation, nullptr };
+        
+        auto linkedID = getLinkedID (xml);
+        
+        if (linkedID.isNotEmpty())
+            topLevelXml.applyOperationToChildWithID (linkedID, op);
+        
+        return op.target;
+    }
+    
     Drawable* parseShape (const XmlPath& xml, Path& path,
-                          const bool shouldParseTransform = true) const
+                          const bool shouldParseTransform = true,
+                          AffineTransform* additonalTransform = nullptr) const
     {
         if (shouldParseTransform && xml->hasAttribute ("transform"))
         {
@@ -635,12 +674,19 @@ private:
 
             return newState.parseShape (xml, path, false);
         }
+        
+        if (xml->hasTagName ("use"))
+            return useShape (xml, path);
 
         auto dp = new DrawablePath();
         setCommonAttributes (*dp, xml);
         dp->setFill (Colours::transparentBlack);
 
         path.applyTransform (transform);
+        
+        if (additonalTransform != nullptr)
+            path.applyTransform (*additonalTransform);
+        
         dp->setPath (path);
 
         dp->setFill (getPathFillType (path, xml, "fill",
@@ -779,12 +825,12 @@ private:
         ColourGradient gradient;
 
         {
-            auto link = fillXml->getStringAttribute ("xlink:href");
+            auto linkedID = getLinkedID (fillXml);
 
-            if (link.startsWithChar ('#'))
+            if (linkedID.isNotEmpty())
             {
                 SetGradientStopsOp op = { this, &gradient, };
-                topLevelXml.applyOperationToChildWithID (link.substring (1), op);
+                topLevelXml.applyOperationToChildWithID (linkedID, op);
             }
         }
 
