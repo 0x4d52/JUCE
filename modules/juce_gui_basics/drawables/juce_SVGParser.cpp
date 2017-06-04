@@ -50,10 +50,7 @@ public:
                 
                 if (e->compareAttribute ("id", id)
                       && ! child->hasTagName ("defs"))
-                {
-                    op (child);
-                    return true;
-                }
+                    return op (child);
 
                 if (child.applyOperationToChildWithID (id, op))
                     return true;
@@ -72,9 +69,9 @@ public:
         const SVGState* state;
         Path* targetPath;
 
-        void operator() (const XmlPath& xmlPath) const
+        bool operator() (const XmlPath& xmlPath) const
         {
-            state->parsePathElement (xmlPath, *targetPath);
+            return state->parsePathElement (xmlPath, *targetPath);
         }
     };
     
@@ -85,20 +82,21 @@ public:
         AffineTransform* transform;
         Drawable* target;
       
-        void operator() (const XmlPath& xmlPath)
+        bool operator() (const XmlPath& xmlPath)
         {
             target = state->parseShape (xmlPath, *sourcePath, true, transform);
+            return target != nullptr;
         }
     };
 
     struct GetClipPathOp
     {
-        const SVGState* state;
+        SVGState* state;
         Drawable* target;
 
-        void operator() (const XmlPath& xmlPath) const
+        bool operator() (const XmlPath& xmlPath)
         {
-            state->applyClipPath (*target, xmlPath);
+            return state->applyClipPath (*target, xmlPath);
         }
     };
 
@@ -107,9 +105,9 @@ public:
         const SVGState* state;
         ColourGradient* gradient;
 
-        void operator() (const XmlPath& xml) const
+        bool operator() (const XmlPath& xml) const
         {
-            state->addGradientStopsIn (*gradient, xml);
+            return state->addGradientStopsIn (*gradient, xml);
         }
     };
 
@@ -120,11 +118,16 @@ public:
         float opacity;
         FillType fillType;
 
-        void operator() (const XmlPath& xml)
+        bool operator() (const XmlPath& xml)
         {
             if (xml->hasTagNameIgnoringNamespace ("linearGradient")
                  || xml->hasTagNameIgnoringNamespace ("radialGradient"))
+            {
                 fillType = state->getGradientFillType (xml, *path, opacity);
+                return true;
+            }
+            
+            return false;
         }
     };
 
@@ -439,7 +442,7 @@ private:
     }
 
     //==============================================================================
-    void parseSubElements (const XmlPath& xml, DrawableComposite& parentDrawable)
+    void parseSubElements (const XmlPath& xml, DrawableComposite& parentDrawable, const bool shouldParseClip = true)
     {
         forEachXmlChildElement (*xml, e)
         {
@@ -451,6 +454,9 @@ private:
 
                 if (! isNone (getStyleAttribute (child, "display")))
                     drawable->setVisible (true);
+                
+                if (shouldParseClip)
+                    parseClipPath (child, *drawable);
             }
         }
     }
@@ -723,7 +729,6 @@ private:
         if (strokeDashArray.isNotEmpty())
             parseDashArray (strokeDashArray, *dp);
 
-        parseClipPath (xml, *dp);
         return dp;
     }
 
@@ -783,7 +788,7 @@ private:
         }
     }
 
-    void parseClipPath (const XmlPath& xml, Drawable& d) const
+    bool parseClipPath (const XmlPath& xml, Drawable& d)
     {
         const String clipPath (getStyleAttribute (xml, "clip-path"));
 
@@ -794,22 +799,36 @@ private:
             if (urlID.isNotEmpty())
             {
                 GetClipPathOp op = { this, &d };
-                topLevelXml.applyOperationToChildWithID (urlID, op);
+                return topLevelXml.applyOperationToChildWithID (urlID, op);
             }
         }
+        
+        return false;
     }
 
-    void applyClipPath (Drawable& target, const XmlPath& xmlPath) const
+    bool applyClipPath (Drawable& target, const XmlPath& xmlPath)
     {
         if (xmlPath->hasTagNameIgnoringNamespace ("clipPath"))
-        {
-            // TODO: implement clipping..
-            ignoreUnused (target);
+        {            
+            ScopedPointer<DrawableComposite> drawableClip (new DrawableComposite());
+            
+            parseSubElements (xmlPath, *drawableClip, false);
+            
+            if (drawableClip->getNumChildComponents() > 0)
+            {
+                setCommonAttributes (*drawableClip, xmlPath);
+                target.setClip (drawableClip.release());
+                return true;
+            }
         }
+        
+        return false;
     }
 
-    void addGradientStopsIn (ColourGradient& cg, const XmlPath& fillXml) const
+    bool addGradientStopsIn (ColourGradient& cg, const XmlPath& fillXml) const
     {
+        bool result = false;
+        
         if (fillXml.xml != nullptr)
         {
             forEachXmlChildElementWithTagName (*fillXml, e, "stop")
@@ -825,8 +844,11 @@ private:
                     offset *= 0.01;
 
                 cg.addColour (jlimit (0.0, 1.0, offset), col);
+                result = true;
             }
         }
+        
+        return result;
     }
 
     FillType getGradientFillType (const XmlPath& fillXml,

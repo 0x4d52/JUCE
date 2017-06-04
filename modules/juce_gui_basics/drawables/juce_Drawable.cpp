@@ -39,6 +39,17 @@ Drawable::~Drawable()
 {
 }
 
+void Drawable::applyDrawableClip (Graphics& g)
+{
+    if (drawableClip != nullptr)
+    {
+        auto clipPath = drawableClip->getOutlineAsPath();
+        
+        if (! clipPath.isEmpty())
+            g.getInternalContext().clipToPath (clipPath, {});
+    }
+}
+
 //==============================================================================
 void Drawable::draw (Graphics& g, float opacity, const AffineTransform& transform) const
 {
@@ -54,6 +65,8 @@ void Drawable::nonConstDraw (Graphics& g, float opacity, const AffineTransform& 
                         .followedBy (getTransform())
                         .followedBy (transform));
 
+    applyDrawableClip (g);
+    
     if (! g.isClipEmpty())
     {
         if (opacity < 1.0f)
@@ -84,6 +97,15 @@ void Drawable::drawWithin (Graphics& g, const Rectangle<float>& destArea,
 DrawableComposite* Drawable::getParent() const
 {
     return dynamic_cast<DrawableComposite*> (getParentComponent());
+}
+
+void Drawable::setClip (Drawable* clip)
+{
+    if (drawableClip != clip)
+    {
+        drawableClip = clip;
+        repaint();
+    }
 }
 
 void Drawable::transformContextToCorrectOrigin (Graphics& g)

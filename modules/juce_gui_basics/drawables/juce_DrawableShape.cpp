@@ -169,7 +169,8 @@ void DrawableShape::writeTo (FillAndStrokeState& state, ComponentBuilder::ImageP
 void DrawableShape::paint (Graphics& g)
 {
     transformContextToCorrectOrigin (g);
-
+    applyDrawableClip (g);
+    
     g.setFillType (mainFill.fill);
     g.fillPath (path);
 
@@ -486,3 +487,9 @@ bool DrawableShape::replaceColour (Colour original, Colour replacement)
     bool changed2 = replaceColourInFill (strokeFill, original, replacement);
     return changed1 || changed2;
 }
+
+Path DrawableShape::getOutlineAsPath() const
+{
+    return isStrokeVisible() ? strokePath : path;
+}
+

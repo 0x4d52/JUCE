@@ -97,6 +97,8 @@ public:
     static const Identifier valueTreeType;
     /** @internal */
     Rectangle<float> getDrawableBounds() const override;
+    /** @internal */
+    Path getOutlineAsPath() const override;
 
     //==============================================================================
     /** Internally-used class for wrapping a DrawableText's state into a ValueTree. */

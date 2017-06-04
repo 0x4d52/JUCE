@@ -113,7 +113,9 @@ public:
     void parentHierarchyChanged() override;
     /** @internal */
     MarkerList* getMarkers (bool xAxis) override;
-
+    /** @internal */
+    Path getOutlineAsPath() const override;
+    
     //==============================================================================
     /** Internally-used class for wrapping a DrawableComposite's state into a ValueTree. */
     class ValueTreeWrapper   : public Drawable::ValueTreeWrapperBase

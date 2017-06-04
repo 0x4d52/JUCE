@@ -51,6 +51,9 @@ public:
         Use this to create a new copy of this and any sub-objects in the tree.
     */
     virtual Drawable* createCopy() const = 0;
+    
+    /** Creates a path that describes the outline of this drawable. */
+    virtual Path getOutlineAsPath() const = 0;
 
     //==============================================================================
     /** Renders this Drawable object.
@@ -115,6 +118,11 @@ public:
     /** Returns the DrawableComposite that contains this object, if there is one. */
     DrawableComposite* getParent() const;
 
+    /** Sets a the clipping region of this drawable using another drawable.
+     The drawbale passed in ill be deleted when no longer needed.
+    */
+    void setClip (Drawable* drawableClip);
+    
     //==============================================================================
     /** Tries to turn some kind of image file into a drawable.
 
@@ -226,8 +234,11 @@ protected:
     void parentHierarchyChanged() override;
     /** @internal */
     void setBoundsToEnclose (const Rectangle<float>&);
-
+    /** @internal */
+    void applyDrawableClip (Graphics&);
+    
     Point<int> originRelativeToComponent;
+    ScopedPointer<Drawable> drawableClip;
 
   #ifndef DOXYGEN
     /** Internal utility class used by Drawables. */
