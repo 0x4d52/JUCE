@@ -91,7 +91,7 @@ public:
     
     struct UseTextOp
     {
-        const SVGState* state;
+        SVGState* state;
         AffineTransform* transform;
         Drawable* target;
         
@@ -446,11 +446,13 @@ public:
 
 private:
     //==============================================================================
+    
     const File originalFile;
     const XmlPath topLevelXml;
     float width = 512, height = 512, viewBoxW = 0, viewBoxH = 0;
     AffineTransform transform;
     String cssStyleText;
+    Font font;
 
     static bool isNone (const String& s) noexcept
     {
@@ -683,7 +685,7 @@ private:
         return false;
     }
     
-    Drawable* parseUseOther (const XmlPath& xml) const
+    Drawable* parseUseOther (const XmlPath& xml)
     {
         if (auto* drawableText  = parseText (xml, false))    return drawableText;
         if (auto* drawableImage = parseImage (xml, false))   return drawableImage;
@@ -1074,7 +1076,7 @@ private:
 
     //==============================================================================
     
-    Drawable* useText (const XmlPath& xml) const
+    Drawable* useText (const XmlPath& xml)
     {
         auto translation = AffineTransform::translation ((float) xml->getDoubleAttribute ("x", 0.0),
                                                          (float) xml->getDoubleAttribute ("y", 0.0));
@@ -1090,7 +1092,7 @@ private:
     }
     
     Drawable* parseText (const XmlPath& xml, bool shouldParseTransform,
-                         AffineTransform* additonalTransform = nullptr) const
+                         AffineTransform* additonalTransform = nullptr)
     {
         if (shouldParseTransform && xml->hasAttribute ("transform"))
         {
@@ -1102,7 +1104,7 @@ private:
         
         if (xml->hasTagName ("use"))
             return useText (xml);
-        else if (! xml->hasTagName ("text"))
+        else if (! xml->hasTagName ("text") && ! xml->hasTagName ("tspan"))
             return nullptr;
             
         Array<float> xCoords, yCoords, dxCoords, dyCoords;
@@ -1112,7 +1114,7 @@ private:
         getCoordList (dxCoords, getInheritedAttribute (xml, "dx"), true, true);
         getCoordList (dyCoords, getInheritedAttribute (xml, "dy"), true, false);
 
-        auto font = getFont (xml);
+        updateFont (xml);
         auto anchorStr = getStyleAttribute (xml, "text-anchor");
 
         auto dc = new DrawableComposite();
@@ -1148,28 +1150,38 @@ private:
             }
             else if (e->hasTagNameIgnoringNamespace ("tspan"))
             {
-                dc->addAndMakeVisible (parseText (xml.getChild (e), true));
+                SVGState newState (*this);
+                newState.addTransform (xml);
+                
+                dc->addAndMakeVisible (newState.parseText (xml.getChild (e), true, additonalTransform));
             }
         }
 
         return dc;
     }
 
-    Font getFont (const XmlPath& xml) const
+    void updateFont (const XmlPath& xml)
     {
-        Font f;
         auto family = getStyleAttribute (xml, "font-family").unquoted();
 
+        if (family.contains ("-"))
+        {
+            auto style = family.fromLastOccurrenceOf ("-", false, false);
+            family = family.upToLastOccurrenceOf ("-", false, false);
+            font.setTypefaceStyle (style);
+        }
+        
         if (family.isNotEmpty())
-            f.setTypefaceName (family);
+            font.setTypefaceName (family);
 
         if (getStyleAttribute (xml, "font-style").containsIgnoreCase ("italic"))
-            f.setItalic (true);
+            font.setItalic (true);
 
         if (getStyleAttribute (xml, "font-weight").containsIgnoreCase ("bold"))
-            f.setBold (true);
-
-        return f.withPointHeight (getCoordLength (getStyleAttribute (xml, "font-size"), 1.0f));
+            font.setBold (true);
+        
+        font = font.withPointHeight (getCoordLength (getStyleAttribute (xml, "font-size"),
+                                                     font.getHeightInPoints()));
     }
 
     //==============================================================================
