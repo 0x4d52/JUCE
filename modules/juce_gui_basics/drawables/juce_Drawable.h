@@ -121,7 +121,7 @@ public:
     /** Sets a the clipping region of this drawable using another drawable.
      The drawbale passed in ill be deleted when no longer needed.
     */
-    void setClip (Drawable* drawableClip);
+    void setClipPath (Drawable* drawableClipPath);
     
     //==============================================================================
     /** Tries to turn some kind of image file into a drawable.
@@ -235,10 +235,10 @@ protected:
     /** @internal */
     void setBoundsToEnclose (const Rectangle<float>&);
     /** @internal */
-    void applyDrawableClip (Graphics&);
+    void applyDrawableClipPath (Graphics&);
     
     Point<int> originRelativeToComponent;
-    ScopedPointer<Drawable> drawableClip;
+    ScopedPointer<Drawable> drawableClipPath;
 
   #ifndef DOXYGEN
     /** Internal utility class used by Drawables. */

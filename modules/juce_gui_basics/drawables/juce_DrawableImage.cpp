@@ -291,6 +291,5 @@ ValueTree DrawableImage::createValueTree (ComponentBuilder::ImageProvider* image
 
 Path DrawableImage::getOutlineAsPath() const
 {
-    jassertfalse;
-    return {};
+    return {}; // not applicable for images
 }

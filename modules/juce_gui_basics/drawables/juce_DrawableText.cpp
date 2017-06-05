@@ -336,6 +336,6 @@ ValueTree DrawableText::createValueTree (ComponentBuilder::ImageProvider*) const
 Path DrawableText::getOutlineAsPath() const
 {
     jassertfalse;
-    return {};
+    return {}; // TODO
 }
 

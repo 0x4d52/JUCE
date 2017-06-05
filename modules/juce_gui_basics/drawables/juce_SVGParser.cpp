@@ -817,7 +817,7 @@ private:
             if (drawableClip->getNumChildComponents() > 0)
             {
                 setCommonAttributes (*drawableClip, xmlPath);
-                target.setClip (drawableClip.release());
+                target.setClipPath (drawableClip.release());
                 return true;
             }
         }
