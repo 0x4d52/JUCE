@@ -102,6 +102,20 @@ public:
         }
     };
     
+    struct UseTextRefOp
+    {
+        const SVGState* state;
+        String text;
+        
+        bool operator() (const XmlPath& xmlPath)
+        {
+            if (xmlPath->hasTagName ("text"))
+                text = xmlPath->getAllSubText().trim();
+            
+            return text.isNotEmpty();
+        }
+    };
+    
     struct UseImageOp
     {
         const SVGState* state;
@@ -1091,6 +1105,18 @@ private:
         return op.target;
     }
     
+    String useTextReference (const XmlPath& xml) const
+    {
+        UseTextRefOp op = { this, {} };
+        
+        auto linkedID = getLinkedID (xml);
+        
+        if (linkedID.isNotEmpty())
+            topLevelXml.applyOperationToChildWithID (linkedID, op);
+        
+        return op.text;
+    }
+    
     Drawable* parseText (const XmlPath& xml, bool shouldParseTransform,
                          AffineTransform* additonalTransform = nullptr)
     {
@@ -1122,58 +1148,138 @@ private:
 
         forEachXmlChildElement (*xml, e)
         {
-            if (e->isTextElement())
-            {
-                auto text = e->getText().trim();
-
-                auto dt = new DrawableText();
-                dc->addAndMakeVisible (dt);
-
-                dt->setText (text);
-                dt->setFont (font, true);
-                
-                if (additonalTransform != nullptr)
-                    dt->setTransform (transform.followedBy (*additonalTransform));
-                else
-                    dt->setTransform (transform);
-
-                dt->setColour (parseColour (xml, "fill", Colours::black)
-                                 .withMultipliedAlpha (getStyleAttribute (xml, "fill-opacity", "1").getFloatValue()));
-
-                Rectangle<float> bounds (xCoords[0], yCoords[0] - font.getAscent(),
-                                         font.getStringWidthFloat (text), font.getHeight());
-
-                if (anchorStr == "middle")   bounds.setX (bounds.getX() - bounds.getWidth() / 2.0f);
-                else if (anchorStr == "end") bounds.setX (bounds.getX() - bounds.getWidth());
-
-                dt->setBoundingBox (bounds);
-            }
-            else if (e->hasTagNameIgnoringNamespace ("tspan"))
+            if (e->hasTagNameIgnoringNamespace ("tspan"))
             {
                 SVGState newState (*this);
-                newState.addTransform (xml);
-                
                 dc->addAndMakeVisible (newState.parseText (xml.getChild (e), true, additonalTransform));
+            }
+            else
+            {
+                String text;
+                
+                if (e->isTextElement())
+                    text = e->getText().trim();
+                else if (e->hasTagNameIgnoringNamespace ("tref"))
+                    text = useTextReference (xml.getChild (e));
+
+                if (text.isNotEmpty())
+                {
+                    auto dt = new DrawableText();
+                    dc->addAndMakeVisible (dt);
+
+                    dt->setText (text);
+                    dt->setFont (font, true);
+                    
+                    Rectangle<float> bounds (xCoords[0], yCoords[0] - font.getAscent(),
+                                             font.getStringWidthFloat (text), font.getHeight());
+                    
+                    if (anchorStr == "middle")   bounds.setX (bounds.getX() - bounds.getWidth() / 2.0f);
+                    else if (anchorStr == "end") bounds.setX (bounds.getX() - bounds.getWidth());
+                    
+                    dt->setTransform (additonalTransform == nullptr ? transform : (*additonalTransform).followedBy (transform));
+
+                    dt->setColour (parseColour (xml, "fill", Colours::black)
+                                     .withMultipliedAlpha (getStyleAttribute (xml, "fill-opacity", "1").getFloatValue()));
+
+                    dt->setBoundingBox (bounds);
+                }
             }
         }
 
         return dc;
     }
+    
+    static String expandCamelCase (String::CharPointerType s)
+    {
+        String result;
+        
+        String::CharPointerType::CharType lastChar (' ');
+                
+        while (! s.isEmpty())
+        {
+            String::CharPointerType::CharType c = s.getAndAdvance();
+            
+            if (! CharacterFunctions::isWhitespace (lastChar)
+                  && lastChar != '-'
+                  &&  CharacterFunctions::isUpperCase (c))
+                result << (String::CharPointerType::CharType) ' ';
+            
+            result << c;
+            lastChar = c;
+        }
+        
+        return result;
+    }
+    
+    bool applyFontIfFamilyExisitsInStyle (const String& family, const String& style)
+    {
+        Font fontTotest;
+        fontTotest.setTypefaceName (family);
 
+        auto availableStyles = fontTotest.getAvailableStyles();
+
+        if (style.isEmpty())
+        {
+            if (availableStyles.isEmpty())
+            {
+                return false;
+            }
+            else
+            {
+                font.setTypefaceName (family);
+                return true;
+            }
+        }
+        else if (availableStyles.contains (style))
+        {
+            font.setTypefaceName (family);
+            font.setTypefaceStyle (style);
+            return true;
+        }
+        
+        return false;
+    }
+    
     void updateFont (const XmlPath& xml)
     {
         auto family = getStyleAttribute (xml, "font-family").unquoted();
 
-        if (family.contains ("-"))
+        if (family.isNotEmpty())
         {
-            auto style = family.fromLastOccurrenceOf ("-", false, false);
-            family = family.upToLastOccurrenceOf ("-", false, false);
-            font.setTypefaceStyle (style);
+            for (;;)
+            {
+                if (applyFontIfFamilyExisitsInStyle (family, {}))
+                    break;
+                
+                if (applyFontIfFamilyExisitsInStyle (family.replace ("-", " "), {}))
+                    break;
+                
+                if (applyFontIfFamilyExisitsInStyle (expandCamelCase (family.getCharPointer()), {}))
+                    break;
+
+                if (family.contains ("-"))
+                {
+                    if (applyFontIfFamilyExisitsInStyle (expandCamelCase (family.upToLastOccurrenceOf ("-", false, false).getCharPointer()),
+                                                         expandCamelCase (family.fromLastOccurrenceOf ("-", false, false).getCharPointer())))
+                        break;
+
+                    if (applyFontIfFamilyExisitsInStyle (family.upToLastOccurrenceOf ("-", false, false),
+                                                         family.fromLastOccurrenceOf ("-", false, false)))
+                        break;
+
+                    if (applyFontIfFamilyExisitsInStyle (family.upToLastOccurrenceOf ("-", false, false),
+                                                         expandCamelCase (family.fromLastOccurrenceOf ("-", false, false).getCharPointer())))
+                        break;
+                    
+                    if (applyFontIfFamilyExisitsInStyle (expandCamelCase (family.upToLastOccurrenceOf ("-", false, false).getCharPointer()),
+                                                         family.fromLastOccurrenceOf ("-", false, false)))
+                        break;
+                }
+
+                break;
+            }
         }
         
-        if (family.isNotEmpty())
-            font.setTypefaceName (family);
-
         if (getStyleAttribute (xml, "font-style").containsIgnoreCase ("italic"))
             font.setItalic (true);
 
