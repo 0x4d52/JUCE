@@ -1150,8 +1150,7 @@ private:
         {
             if (e->hasTagNameIgnoringNamespace ("tspan"))
             {
-                SVGState newState (*this);
-                dc->addAndMakeVisible (newState.parseText (xml.getChild (e), true, additonalTransform));
+                dc->addAndMakeVisible (parseText (xml.getChild (e), true, additonalTransform));
             }
             else
             {
