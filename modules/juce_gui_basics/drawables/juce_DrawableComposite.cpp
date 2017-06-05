@@ -334,5 +334,7 @@ Path DrawableComposite::getOutlineAsPath() const
         if (auto* childDrawable = dynamic_cast<Drawable*> (getChildComponent (i)))
             p.addPath (childDrawable->getOutlineAsPath());
     
+    p.applyTransform (getTransform());
+    
     return p;
 }

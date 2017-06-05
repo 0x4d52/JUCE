@@ -490,6 +490,8 @@ bool DrawableShape::replaceColour (Colour original, Colour replacement)
 
 Path DrawableShape::getOutlineAsPath() const
 {
-    return isStrokeVisible() ? strokePath : path;
+    Path outline (isStrokeVisible() ? strokePath : path);
+    outline.applyTransform (getTransform());
+    return outline;
 }
 

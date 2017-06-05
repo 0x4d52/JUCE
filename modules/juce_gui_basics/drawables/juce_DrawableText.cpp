@@ -345,9 +345,7 @@ ValueTree DrawableText::createValueTree (ComponentBuilder::ImageProvider*) const
 }
 
 Path DrawableText::getOutlineAsPath() const
-{
-//    transformContextToCorrectOrigin (g);
-    
+{    
     const float w = Line<float> (resolvedPoints[0], resolvedPoints[1]).getLength();
     const float h = Line<float> (resolvedPoints[0], resolvedPoints[2]).getLength();
     const auto area = getTextArea (w, h).toFloat();
@@ -368,7 +366,8 @@ Path DrawableText::getOutlineAsPath() const
         pathOfAllGlyphs.addPath (gylphPath);
     }
     
-    pathOfAllGlyphs.applyTransform (getTextTransform (w, h));
+    pathOfAllGlyphs.applyTransform (getTextTransform (w, h)
+                                      .followedBy (getTransform()));
     
     return pathOfAllGlyphs;
 }
