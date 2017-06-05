@@ -147,6 +147,8 @@ private:
     bool registerCoordinates (RelativeCoordinatePositionerBase&);
     void recalculateCoordinates (Expression::Scope*);
     void refreshBounds();
+    Rectangle<int> getTextArea (float width, float height) const;
+    AffineTransform getTextTransform (float width, float height) const;
 
     DrawableText& operator= (const DrawableText&);
     JUCE_LEAK_DETECTOR (DrawableText)

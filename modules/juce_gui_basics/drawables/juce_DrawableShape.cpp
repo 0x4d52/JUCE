@@ -169,7 +169,7 @@ void DrawableShape::writeTo (FillAndStrokeState& state, ComponentBuilder::ImageP
 void DrawableShape::paint (Graphics& g)
 {
     transformContextToCorrectOrigin (g);
-    applyDrawableClipPath   (g);
+    applyDrawableClipPath (g);
     
     g.setFillType (mainFill.fill);
     g.fillPath (path);

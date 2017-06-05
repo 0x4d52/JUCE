@@ -88,7 +88,33 @@ public:
             return target != nullptr;
         }
     };
-
+    
+    struct UseTextOp
+    {
+        const SVGState* state;
+        AffineTransform* transform;
+        Drawable* target;
+        
+        bool operator() (const XmlPath& xmlPath)
+        {
+            target = state->parseText (xmlPath, true, transform);
+            return target != nullptr;
+        }
+    };
+    
+    struct UseImageOp
+    {
+        const SVGState* state;
+        AffineTransform* transform;
+        Drawable* target;
+        
+        bool operator() (const XmlPath& xmlPath)
+        {
+            target = state->parseImage (xmlPath, true, transform);
+            return target != nullptr;
+        }
+    };
+    
     struct GetClipPathOp
     {
         SVGState* state;
@@ -477,6 +503,7 @@ private:
         if (tag == "image")     return parseImage (xml, true);
         if (tag == "switch")    return parseSwitch (xml);
         if (tag == "a")         return parseLinkElement (xml);
+        if (tag == "use")       return parseUseOther (xml);
         if (tag == "style")     parseCSSStyle (xml);
         if (tag == "defs")      parseDefs (xml);
 
@@ -494,7 +521,7 @@ private:
         if (tag == "line")      { parseLine (xml, path);           return true; }
         if (tag == "polyline")  { parsePolygon (xml, true, path);  return true; }
         if (tag == "polygon")   { parsePolygon (xml, false, path); return true; }
-        if (tag == "use")       { parseUse (xml, path);            return true; }
+        if (tag == "use")       { return parseUsePath (xml, path); }
 
         return false;
     }
@@ -643,15 +670,25 @@ private:
         return {};
     }
     
-    void parseUse (const XmlPath& xml, Path& path) const
+    bool parseUsePath (const XmlPath& xml, Path& path) const
     {
         auto linkedID = getLinkedID (xml);
 
         if (linkedID.isNotEmpty())
         {
             UsePathOp op = { this, &path };
-            topLevelXml.applyOperationToChildWithID (linkedID, op);
+            return topLevelXml.applyOperationToChildWithID (linkedID, op);
         }
+        
+        return false;
+    }
+    
+    Drawable* parseUseOther (const XmlPath& xml) const
+    {
+        if (auto* drawableText  = parseText (xml, false))    return drawableText;
+        if (auto* drawableImage = parseImage (xml, false))   return drawableImage;
+        
+        return nullptr;
     }
 
     static String parseURL (const String& str)
@@ -689,7 +726,7 @@ private:
             SVGState newState (*this);
             newState.addTransform (xml);
 
-            return newState.parseShape (xml, path, false);
+            return newState.parseShape (xml, path, false, additonalTransform);
         }
         
         if (xml->hasTagName ("use"))
@@ -810,14 +847,14 @@ private:
     {
         if (xmlPath->hasTagNameIgnoringNamespace ("clipPath"))
         {            
-            ScopedPointer<DrawableComposite> drawableClip (new DrawableComposite());
+            ScopedPointer<DrawableComposite> drawableClipPath (new DrawableComposite());
             
-            parseSubElements (xmlPath, *drawableClip, false);
+            parseSubElements (xmlPath, *drawableClipPath, false);
             
-            if (drawableClip->getNumChildComponents() > 0)
+            if (drawableClipPath->getNumChildComponents() > 0)
             {
-                setCommonAttributes (*drawableClip, xmlPath);
-                target.setClipPath (drawableClip.release());
+                setCommonAttributes (*drawableClipPath, xmlPath);
+                target.setClipPath (drawableClipPath.release());
                 return true;
             }
         }
@@ -1036,16 +1073,36 @@ private:
     }
 
     //==============================================================================
-    Drawable* parseText (const XmlPath& xml, bool shouldParseTransform)
+    
+    Drawable* useText (const XmlPath& xml) const
+    {
+        auto translation = AffineTransform::translation ((float) xml->getDoubleAttribute ("x", 0.0),
+                                                         (float) xml->getDoubleAttribute ("y", 0.0));
+        
+        UseTextOp op = { this, &translation, nullptr };
+        
+        auto linkedID = getLinkedID (xml);
+        
+        if (linkedID.isNotEmpty())
+            topLevelXml.applyOperationToChildWithID (linkedID, op);
+        
+        return op.target;
+    }
+    
+    Drawable* parseText (const XmlPath& xml, bool shouldParseTransform,
+                         AffineTransform* additonalTransform = nullptr) const
     {
         if (shouldParseTransform && xml->hasAttribute ("transform"))
         {
             SVGState newState (*this);
             newState.addTransform (xml);
 
-            return newState.parseText (xml, false);
+            return newState.parseText (xml, false, additonalTransform);
         }
-
+        
+        if (xml->hasTagName ("use"))
+            return useText (xml);
+        
         Array<float> xCoords, yCoords, dxCoords, dyCoords;
 
         getCoordList (xCoords,  getInheritedAttribute (xml, "x"),  true, true);
@@ -1054,7 +1111,7 @@ private:
         getCoordList (dyCoords, getInheritedAttribute (xml, "dy"), true, false);
 
         auto font = getFont (xml);
-        auto anchorStr = getStyleAttribute(xml, "text-anchor");
+        auto anchorStr = getStyleAttribute (xml, "text-anchor");
 
         auto dc = new DrawableComposite();
         setCommonAttributes (*dc, xml);
@@ -1070,7 +1127,11 @@ private:
 
                 dt->setText (text);
                 dt->setFont (font, true);
-                dt->setTransform (transform);
+                
+                if (additonalTransform != nullptr)
+                    dt->setTransform (transform.followedBy (*additonalTransform));
+                else
+                    dt->setTransform (transform);
 
                 dt->setColour (parseColour (xml, "fill", Colours::black)
                                  .withMultipliedAlpha (getStyleAttribute (xml, "fill-opacity", "1").getFloatValue()));
@@ -1110,16 +1171,34 @@ private:
     }
 
     //==============================================================================
-    
-    Drawable* parseImage (const XmlPath& xml, bool shouldParseTransform)
+    Drawable* useImage (const XmlPath& xml) const
+    {
+        auto translation = AffineTransform::translation ((float) xml->getDoubleAttribute ("x", 0.0),
+                                                         (float) xml->getDoubleAttribute ("y", 0.0));
+        
+        UseImageOp op = { this, &translation, nullptr };
+        
+        auto linkedID = getLinkedID (xml);
+        
+        if (linkedID.isNotEmpty())
+            topLevelXml.applyOperationToChildWithID (linkedID, op);
+        
+        return op.target;
+    }
+
+    Drawable* parseImage (const XmlPath& xml, bool shouldParseTransform,
+                          AffineTransform* additionalTransform = nullptr) const
     {
         if (shouldParseTransform && xml->hasAttribute ("transform"))
         {
             SVGState newState (*this);
             newState.addTransform (xml);
             
-            return newState.parseImage (xml, false);
+            return newState.parseImage (xml, false, additionalTransform);
         }
+        
+        if (xml->hasTagName ("use"))
+            return useImage (xml);
      
         auto link = xml->getStringAttribute ("xlink:href");
         
@@ -1164,7 +1243,11 @@ private:
                 
                 setCommonAttributes (*di, xml);
                 di->setImage (image);
-                di->setTransform (transform);
+                
+                if (additionalTransform != nullptr)
+                    di->setTransform (transform.followedBy (*additionalTransform));
+                else
+                    di->setTransform (transform);
                 
                 return di;
             }
