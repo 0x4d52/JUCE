@@ -1102,7 +1102,9 @@ private:
         
         if (xml->hasTagName ("use"))
             return useText (xml);
-        
+        else if (! xml->hasTagName ("text"))
+            return nullptr;
+            
         Array<float> xCoords, yCoords, dxCoords, dyCoords;
 
         getCoordList (xCoords,  getInheritedAttribute (xml, "x"),  true, true);
@@ -1199,7 +1201,9 @@ private:
         
         if (xml->hasTagName ("use"))
             return useImage (xml);
-     
+        else if (! xml->hasTagName ("image"))
+            return nullptr;
+
         auto link = xml->getStringAttribute ("xlink:href");
         
         ScopedPointer<InputStream> inputStream;
