@@ -176,15 +176,22 @@ AffineTransform DrawableText::getTextTransform (float w, float h) const
 void DrawableText::paint (Graphics& g)
 {
     transformContextToCorrectOrigin (g);
+    applyDrawableClipPath (g);
 
     const float w = Line<float> (resolvedPoints[0], resolvedPoints[1]).getLength();
     const float h = Line<float> (resolvedPoints[0], resolvedPoints[2]).getLength();
 
-    g.addTransform (getTextTransform (w, h));
+    auto drawableTransform = getTransform();
+    
+    g.addTransform (drawableTransform.followedBy (getTextTransform (w, h))
+                                     .followedBy (drawableTransform.inverted()));
     g.setFont (scaledFont);
     g.setColour (colour);
 
     g.drawFittedText (text, getTextArea (w, h), justification, 0x100000);
+    
+//    g.setColour (Colours::red);
+//    g.drawRect (getLocalBounds());
 }
 
 Rectangle<float> DrawableText::getDrawableBounds() const

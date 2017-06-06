@@ -172,7 +172,7 @@ public:
     };
 
     //==============================================================================
-    Drawable* parseSVGElement (const XmlPath& xml)
+    Drawable* parseSVGElement (const XmlPath& xml, Rectangle<float>* viewBox = nullptr)
     {
         auto drawable = new DrawableComposite();
         setCommonAttributes (*drawable, xml);
@@ -226,6 +226,9 @@ public:
                                                      RelativeCoordinate (viewboxXY.y),
                                                      RelativeCoordinate (viewboxXY.y + newState.viewBoxH)));
         drawable->resetBoundingBoxToContentArea();
+        
+        if (viewBox != nullptr)
+            *viewBox = Rectangle<float> (viewboxXY.x, viewboxXY.y, newState.viewBoxW, newState.viewBoxH);
 
         return drawable;
     }
@@ -1852,16 +1855,16 @@ private:
 
 
 //==============================================================================
-Drawable* Drawable::createFromSVG (const XmlElement& svgDocument)
+Drawable* Drawable::createFromSVG (const XmlElement& svgDocument, Rectangle<float>* viewBox)
 {
     if (! svgDocument.hasTagNameIgnoringNamespace ("svg"))
         return nullptr;
 
     SVGState state (&svgDocument);
-    return state.parseSVGElement (SVGState::XmlPath (&svgDocument, nullptr));
+    return state.parseSVGElement (SVGState::XmlPath (&svgDocument, nullptr), viewBox);
 }
 
-Drawable* Drawable::createFromSVGFile (const File& svgFile)
+Drawable* Drawable::createFromSVGFile (const File& svgFile, Rectangle<float>* viewBox)
 {
     XmlDocument doc (svgFile.loadFileAsString());
     ScopedPointer<XmlElement> outer (doc.getDocumentElement (true));
@@ -1873,7 +1876,7 @@ Drawable* Drawable::createFromSVGFile (const File& svgFile)
         if (svgDocument != nullptr)
         {
             SVGState state (svgDocument, svgFile);
-            return state.parseSVGElement (SVGState::XmlPath (svgDocument, nullptr));
+            return state.parseSVGElement (SVGState::XmlPath (svgDocument, nullptr), viewBox);
         }
     }
     
