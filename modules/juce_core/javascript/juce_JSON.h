@@ -101,7 +101,8 @@ public:
         @see writeToStream
     */
     static String toString (const var& objectToFormat,
-                            bool allOnOneLine = false);
+                            bool allOnOneLine = false,
+                            int maximumDecimalPlaces = 20);
 
     /** Parses a string that was created with the toString() method.
         This is slightly different to the parse() methods because they will reject primitive
@@ -117,7 +118,8 @@ public:
     */
     static void writeToStream (OutputStream& output,
                                const var& objectToFormat,
-                               bool allOnOneLine = false);
+                               bool allOnOneLine = false,
+                               int maximumDecimalPlaces = 20);
 
     /** Returns a version of a string with any extended characters escaped. */
     static String escapeString (StringRef);

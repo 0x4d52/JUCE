@@ -121,7 +121,7 @@ public:
         never need to call it directly, but it's virtual so that custom object types
         can stringify themselves appropriately.
     */
-    virtual void writeAsJSON (OutputStream&, int indentLevel, bool allOnOneLine);
+    virtual void writeAsJSON (OutputStream&, int indentLevel, bool allOnOneLine, int maximumDecimalPlaces);
 
 private:
     //==============================================================================
@@ -130,6 +130,7 @@ private:
    #if JUCE_CATCH_DEPRECATED_CODE_MISUSE
     // These methods have been deprecated - use var::invoke instead
     virtual void invokeMethod (const Identifier&, const var*, int) {}
+    virtual void writeAsJSON (OutputStream&, int, bool) {}
    #endif
 
     JUCE_LEAK_DETECTOR (DynamicObject)
