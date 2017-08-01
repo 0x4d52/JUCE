@@ -548,12 +548,12 @@ private:
     DrawableComposite* parseSwitch (const XmlPath& xml)
     {
         if (auto* group = xml->getChildByName ("g"))
-            return parseGroupElement (xml.getChild (group));
+            return parseGroupElement (xml.getChild (group), true);
 
         return nullptr;
     }
 
-    DrawableComposite* parseGroupElement (const XmlPath& xml, const bool shouldParseTransform = true)
+    DrawableComposite* parseGroupElement (const XmlPath& xml, bool shouldParseTransform)
     {
         if (shouldParseTransform && xml->hasAttribute ("transform"))
         {
@@ -564,27 +564,16 @@ private:
         }
         
         auto* drawable = new DrawableComposite();
-
         setCommonAttributes (*drawable, xml);
-
-        if (xml->hasAttribute ("transform"))
-        {
-            SVGState newState (*this);
-            newState.addTransform (xml);
-            newState.parseSubElements (xml, *drawable);
-        }
-        else
-        {
-            parseSubElements (xml, *drawable);
-        }
-
+        parseSubElements (xml, *drawable);
+        
         drawable->resetContentAreaAndBoundingBoxToFitChildren();
         return drawable;
     }
-
+    
     DrawableComposite* parseLinkElement (const XmlPath& xml)
     {
-        return parseGroupElement (xml); // TODO: support for making this clickable
+        return parseGroupElement (xml, true); // TODO: support for making this clickable
     }
 
     //==============================================================================
